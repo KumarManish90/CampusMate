@@ -1,0 +1,211 @@
+/* CampusMate — Phase A: mobile-first responsive foundation */
+
+:root {
+  --cm-mobile-nav-height: 68px;
+  --cm-touch-size: 44px;
+  --cm-page-gutter: 16px;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  overflow-x: hidden;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  overflow-x: hidden;
+  overscroll-behavior-x: none;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+button,
+a,
+input,
+textarea,
+select {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button {
+  touch-action: manipulation;
+}
+
+img,
+video,
+canvas,
+svg {
+  max-width: 100%;
+}
+
+img,
+video {
+  display: block;
+}
+
+input,
+textarea,
+select {
+  max-width: 100%;
+}
+
+/* Prevent long names/URLs from creating horizontal overflow. */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p,
+span,
+button,
+a,
+input,
+textarea {
+  overflow-wrap: anywhere;
+}
+
+/* Accessible touch target baseline. Existing circular/icon controls keep
+   their explicit dimensions when those dimensions are already >= 44px. */
+button,
+[role="button"] {
+  min-height: var(--cm-touch-size);
+}
+
+@media (max-width: 767px) {
+  :root {
+    --cm-page-gutter: 14px;
+  }
+
+  body {
+    width: 100%;
+  }
+
+  /* Full-width app surfaces should never force a horizontal scroll. */
+  [style*="width: 100%"] {
+    max-width: 100% !important;
+  }
+
+  /* Common desktop max-width containers become fluid on phones. */
+  [style*="max-width: 480px"],
+  [style*="max-width: 520px"],
+  [style*="max-width: 640px"],
+  [style*="max-width: 720px"],
+  [style*="max-width: 860px"],
+  [style*="max-width: 960px"],
+  [style*="max-width: 1100px"] {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* Large horizontal padding used by desktop sections. */
+  [style*="padding: 20px 24px"],
+  [style*="padding: 10px 24px"],
+  [style*="padding: 16px 24px"],
+  [style*="padding: 24px"] {
+    padding-left: var(--cm-page-gutter) !important;
+    padding-right: var(--cm-page-gutter) !important;
+  }
+
+  /* Dense rows/grids should collapse naturally on small screens. */
+  [style*="grid-template-columns: repeat(4"],
+  [style*="grid-template-columns: repeat(3"],
+  [style*="grid-template-columns: repeat(2"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Preserve 3-column thumbnail grids: they are intentionally compact. */
+  [style*="grid-template-columns: repeat(3, 1fr)"] {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  /* Horizontal card lists become swipeable instead of overflowing the page. */
+  [style*="overflow-x: auto"] {
+    scrollbar-width: none;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  [style*="overflow-x: auto"]::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Reels: use almost the full viewport on phones. */
+  [style*="height: 72vh"] {
+    height: calc(100dvh - 150px) !important;
+    max-height: 760px !important;
+    min-height: 460px !important;
+    border-radius: 16px !important;
+  }
+
+  /* Chat should respect mobile browser viewport changes. */
+  [style*="height: 100vh"] {
+    height: 100dvh !important;
+    min-height: 0;
+  }
+
+  /* Bottom sheets/modals get safe-area padding on iPhone. */
+  [style*="position: fixed"][style*="align-items: flex-end"] > div:last-child {
+    padding-bottom: max(18px, env(safe-area-inset-bottom)) !important;
+    max-height: 82dvh !important;
+  }
+
+  /* Inputs/buttons remain comfortable for thumbs. */
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+
+  button {
+    min-width: 44px;
+  }
+
+  /* Avoid accidental oversized icon-only controls. */
+  button svg {
+    flex: 0 0 auto;
+  }
+
+  /* Media containers should stay inside the viewport. */
+  video,
+  img {
+    max-width: 100%;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  :root {
+    --cm-page-gutter: 20px;
+  }
+
+  [style*="max-width: 480px"],
+  [style*="max-width: 520px"] {
+    max-width: min(100%, 620px) !important;
+  }
+}
+
+@media (min-width: 1024px) {
+  /* Desktop keeps the current visual system; only guard against media overflow. */
+  video,
+  img {
+    max-width: 100%;
+  }
+}
+
+/* Respect reduced-motion preferences across all phases. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
