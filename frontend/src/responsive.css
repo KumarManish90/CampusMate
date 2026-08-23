@@ -55,7 +55,6 @@ select {
   max-width: 100%;
 }
 
-/* Prevent long names/URLs from creating horizontal overflow. */
 h1,
 h2,
 h3,
@@ -71,8 +70,6 @@ textarea {
   overflow-wrap: anywhere;
 }
 
-/* Accessible touch target baseline. Existing circular/icon controls keep
-   their explicit dimensions when those dimensions are already >= 44px. */
 button,
 [role="button"] {
   min-height: var(--cm-touch-size);
@@ -87,7 +84,40 @@ button,
     width: 100%;
   }
 
-  /* Full-width app surfaces should never force a horizontal scroll. */
+  /* Keep the five-item mobile navigation above the browser/home indicator. */
+  .cm-bottomnav {
+    min-height: calc(var(--cm-mobile-nav-height) + env(safe-area-inset-bottom)) !important;
+    padding: 7px 8px max(7px, env(safe-area-inset-bottom)) !important;
+    background: rgba(10, 13, 26, 0.92) !important;
+    backdrop-filter: blur(18px) saturate(140%);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
+    box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.14);
+  }
+
+  /* Light theme is supplied by the component's inline surface color; keep
+     the translucent effect while letting that surface show through. */
+  .cm-bottomnav button {
+    min-width: 52px;
+    min-height: 48px;
+    padding: 6px 5px !important;
+    border-radius: 14px;
+  }
+
+  .cm-bottomnav button:active {
+    transform: scale(0.96);
+  }
+
+  .cm-bottomnav button:nth-child(3) {
+    min-width: 50px;
+    min-height: 50px;
+  }
+
+  /* Content ends above the fixed navigation instead of hiding behind it. */
+  .cm-bottomnav ~ * {
+    padding-bottom: calc(var(--cm-mobile-nav-height) + env(safe-area-inset-bottom)) !important;
+  }
+
+  /* Full-width app surfaces should never force horizontal scrolling. */
   [style*="width: 100%"] {
     max-width: 100% !important;
   }
@@ -104,7 +134,8 @@ button,
     max-width: 100% !important;
   }
 
-  /* Large horizontal padding used by desktop sections. */
+  /* Top bars and page sections use compact phone gutters. */
+  [style*="padding: 22px 24px 6px"],
   [style*="padding: 20px 24px"],
   [style*="padding: 10px 24px"],
   [style*="padding: 16px 24px"],
@@ -113,30 +144,33 @@ button,
     padding-right: var(--cm-page-gutter) !important;
   }
 
-  /* Dense rows/grids should collapse naturally on small screens. */
-  [style*="grid-template-columns: repeat(4"],
-  [style*="grid-template-columns: repeat(3"],
-  [style*="grid-template-columns: repeat(2"] {
-    grid-template-columns: 1fr !important;
+  /* Stats/cards can become two-up instead of tiny one-column blocks. */
+  [style*="grid-template-columns: repeat(auto-fit, minmax(130px,1fr))"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
 
-  /* Preserve 3-column thumbnail grids: they are intentionally compact. */
+  /* Preserve intentional three-column profile thumbnails. */
   [style*="grid-template-columns: repeat(3, 1fr)"] {
     grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
   }
 
-  /* Horizontal card lists become swipeable instead of overflowing the page. */
+  /* Horizontal card sections are touch-scrollable carousels. */
   [style*="overflow-x: auto"] {
     scrollbar-width: none;
     overscroll-behavior-x: contain;
     -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x proximity;
   }
 
   [style*="overflow-x: auto"]::-webkit-scrollbar {
     display: none;
   }
 
-  /* Reels: use almost the full viewport on phones. */
+  [style*="overflow-x: auto"] > * {
+    scroll-snap-align: start;
+  }
+
+  /* Reels use the available mobile viewport instead of a desktop-sized box. */
   [style*="height: 72vh"] {
     height: calc(100dvh - 150px) !important;
     max-height: 760px !important;
@@ -144,19 +178,18 @@ button,
     border-radius: 16px !important;
   }
 
-  /* Chat should respect mobile browser viewport changes. */
+  /* Chat follows the dynamic mobile viewport. */
   [style*="height: 100vh"] {
     height: 100dvh !important;
     min-height: 0;
   }
 
-  /* Bottom sheets/modals get safe-area padding on iPhone. */
+  /* Bottom sheets/modals get iPhone safe-area padding. */
   [style*="position: fixed"][style*="align-items: flex-end"] > div:last-child {
     padding-bottom: max(18px, env(safe-area-inset-bottom)) !important;
     max-height: 82dvh !important;
   }
 
-  /* Inputs/buttons remain comfortable for thumbs. */
   input,
   textarea,
   select {
@@ -167,12 +200,10 @@ button,
     min-width: 44px;
   }
 
-  /* Avoid accidental oversized icon-only controls. */
   button svg {
     flex: 0 0 auto;
   }
 
-  /* Media containers should stay inside the viewport. */
   video,
   img {
     max-width: 100%;
@@ -191,14 +222,12 @@ button,
 }
 
 @media (min-width: 1024px) {
-  /* Desktop keeps the current visual system; only guard against media overflow. */
   video,
   img {
     max-width: 100%;
   }
 }
 
-/* Respect reduced-motion preferences across all phases. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
