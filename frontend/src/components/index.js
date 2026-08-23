@@ -9,3 +9,5 @@ export { default as PostCard } from "./social/PostCard";
 export { default as ReelCard } from "./social/ReelCard";
 export { default as StoryStrip } from "./social/StoryStrip";
 export { default as ProfileHeader } from "./profile/ProfileHeader";
+export { default as EventCard } from "./campus/EventCard";
+export { default as ClubCard } from "./campus/ClubCard";
