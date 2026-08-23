@@ -1,240 +1,59 @@
 /* CampusMate — Phase A: mobile-first responsive foundation */
+:root{--cm-mobile-nav-height:72px;--cm-touch-size:44px;--cm-page-gutter:16px}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%;overflow-x:hidden}
+body{margin:0;min-width:320px;overflow-x:hidden;overscroll-behavior-x:none}
+*,*::before,*::after{box-sizing:border-box}
+button,a,input,textarea,select{-webkit-tap-highlight-color:transparent}
+button{touch-action:manipulation}
+img,video,canvas,svg{max-width:100%}
+img,video{display:block}
+input,textarea,select{max-width:100%}
+button,[role="button"]{min-height:var(--cm-touch-size)}
 
-:root {
-  --cm-mobile-nav-height: 68px;
-  --cm-touch-size: 44px;
-  --cm-page-gutter: 16px;
+@media(max-width:860px){
+  :root{--cm-page-gutter:14px}
+  body{width:100%}
+  .cm-sidebar{display:none!important}
+  .cm-bottomnav{
+    display:flex!important;
+    position:fixed!important;
+    left:0!important;right:0!important;bottom:0!important;
+    width:100%!important;
+    min-height:calc(var(--cm-mobile-nav-height) + env(safe-area-inset-bottom))!important;
+    padding:7px 8px max(7px,env(safe-area-inset-bottom))!important;
+    box-sizing:border-box!important;
+    z-index:9999!important;
+    visibility:visible!important;
+    opacity:1!important;
+    align-items:center!important;
+    justify-content:space-around!important;
+    gap:2px!important;
+    backdrop-filter:blur(18px) saturate(140%);
+    -webkit-backdrop-filter:blur(18px) saturate(140%);
+    box-shadow:0 -10px 30px rgba(0,0,0,.14)
+  }
+  .cm-bottomnav button{min-width:52px!important;min-height:48px!important;padding:6px 5px!important;border-radius:14px}
+  .cm-bottomnav button:active{transform:scale(.96)}
+  .cm-bottomnav button:nth-child(3){min-width:50px!important;min-height:50px!important}
+  .cm-bottomnav+*{padding-bottom:calc(var(--cm-mobile-nav-height) + env(safe-area-inset-bottom))!important}
+  .cm-bottomnav ~ *{padding-bottom:calc(var(--cm-mobile-nav-height) + env(safe-area-inset-bottom))!important}
+  [style*="width: 100%"]{max-width:100%!important}
+  [style*="max-width: 480px"],[style*="max-width: 520px"],[style*="max-width: 640px"],[style*="max-width: 720px"],[style*="max-width: 860px"],[style*="max-width: 960px"],[style*="max-width: 1100px"]{width:100%!important;max-width:100%!important}
+  [style*="padding: 22px 24px 6px"],[style*="padding: 20px 24px"],[style*="padding: 10px 24px"],[style*="padding: 16px 24px"],[style*="padding: 24px"]{padding-left:var(--cm-page-gutter)!important;padding-right:var(--cm-page-gutter)!important}
+  [style*="grid-template-columns: repeat(auto-fit, minmax(130px,1fr)"]{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  [style*="overflow-x: auto"]{scrollbar-width:none;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;scroll-snap-type:x proximity}
+  [style*="overflow-x: auto"]::-webkit-scrollbar{display:none}
+  [style*="overflow-x: auto"]>*{scroll-snap-align:start}
+  [style*="height: 72vh"]{height:calc(100dvh - 150px)!important;max-height:760px!important;min-height:460px!important;border-radius:16px!important}
+  [style*="height: 100vh"]{height:100dvh!important;min-height:0}
+  input,textarea,select{font-size:16px!important}
+  button{min-width:44px}
 }
 
-html {
-  -webkit-text-size-adjust: 100%;
-  text-size-adjust: 100%;
-  overflow-x: hidden;
+@media(min-width:768px) and (max-width:1023px){
+  :root{--cm-page-gutter:20px}
 }
 
-body {
-  margin: 0;
-  min-width: 320px;
-  overflow-x: hidden;
-  overscroll-behavior-x: none;
-}
-
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-}
-
-button,
-a,
-input,
-textarea,
-select {
-  -webkit-tap-highlight-color: transparent;
-}
-
-button {
-  touch-action: manipulation;
-}
-
-img,
-video,
-canvas,
-svg {
-  max-width: 100%;
-}
-
-img,
-video {
-  display: block;
-}
-
-input,
-textarea,
-select {
-  max-width: 100%;
-}
-
-h1,
-h2,
-h3,
-h4,
-h5,
-h6,
-p,
-span,
-button,
-a,
-input,
-textarea {
-  overflow-wrap: anywhere;
-}
-
-button,
-[role="button"] {
-  min-height: var(--cm-touch-size);
-}
-
-@media (max-width: 767px) {
-  :root {
-    --cm-page-gutter: 14px;
-  }
-
-  body {
-    width: 100%;
-  }
-
-  /* Keep the five-item mobile navigation above the browser/home indicator. */
-  .cm-bottomnav {
-    min-height: calc(var(--cm-mobile-nav-height) + env(safe-area-inset-bottom)) !important;
-    padding: 7px 8px max(7px, env(safe-area-inset-bottom)) !important;
-    background: rgba(10, 13, 26, 0.92) !important;
-    backdrop-filter: blur(18px) saturate(140%);
-    -webkit-backdrop-filter: blur(18px) saturate(140%);
-    box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.14);
-  }
-
-  /* Light theme is supplied by the component's inline surface color; keep
-     the translucent effect while letting that surface show through. */
-  .cm-bottomnav button {
-    min-width: 52px;
-    min-height: 48px;
-    padding: 6px 5px !important;
-    border-radius: 14px;
-  }
-
-  .cm-bottomnav button:active {
-    transform: scale(0.96);
-  }
-
-  .cm-bottomnav button:nth-child(3) {
-    min-width: 50px;
-    min-height: 50px;
-  }
-
-  /* Content ends above the fixed navigation instead of hiding behind it. */
-  .cm-bottomnav ~ * {
-    padding-bottom: calc(var(--cm-mobile-nav-height) + env(safe-area-inset-bottom)) !important;
-  }
-
-  /* Full-width app surfaces should never force horizontal scrolling. */
-  [style*="width: 100%"] {
-    max-width: 100% !important;
-  }
-
-  /* Common desktop max-width containers become fluid on phones. */
-  [style*="max-width: 480px"],
-  [style*="max-width: 520px"],
-  [style*="max-width: 640px"],
-  [style*="max-width: 720px"],
-  [style*="max-width: 860px"],
-  [style*="max-width: 960px"],
-  [style*="max-width: 1100px"] {
-    width: 100% !important;
-    max-width: 100% !important;
-  }
-
-  /* Top bars and page sections use compact phone gutters. */
-  [style*="padding: 22px 24px 6px"],
-  [style*="padding: 20px 24px"],
-  [style*="padding: 10px 24px"],
-  [style*="padding: 16px 24px"],
-  [style*="padding: 24px"] {
-    padding-left: var(--cm-page-gutter) !important;
-    padding-right: var(--cm-page-gutter) !important;
-  }
-
-  /* Stats/cards can become two-up instead of tiny one-column blocks. */
-  [style*="grid-template-columns: repeat(auto-fit, minmax(130px,1fr))"] {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-  }
-
-  /* Preserve intentional three-column profile thumbnails. */
-  [style*="grid-template-columns: repeat(3, 1fr)"] {
-    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-  }
-
-  /* Horizontal card sections are touch-scrollable carousels. */
-  [style*="overflow-x: auto"] {
-    scrollbar-width: none;
-    overscroll-behavior-x: contain;
-    -webkit-overflow-scrolling: touch;
-    scroll-snap-type: x proximity;
-  }
-
-  [style*="overflow-x: auto"]::-webkit-scrollbar {
-    display: none;
-  }
-
-  [style*="overflow-x: auto"] > * {
-    scroll-snap-align: start;
-  }
-
-  /* Reels use the available mobile viewport instead of a desktop-sized box. */
-  [style*="height: 72vh"] {
-    height: calc(100dvh - 150px) !important;
-    max-height: 760px !important;
-    min-height: 460px !important;
-    border-radius: 16px !important;
-  }
-
-  /* Chat follows the dynamic mobile viewport. */
-  [style*="height: 100vh"] {
-    height: 100dvh !important;
-    min-height: 0;
-  }
-
-  /* Bottom sheets/modals get iPhone safe-area padding. */
-  [style*="position: fixed"][style*="align-items: flex-end"] > div:last-child {
-    padding-bottom: max(18px, env(safe-area-inset-bottom)) !important;
-    max-height: 82dvh !important;
-  }
-
-  input,
-  textarea,
-  select {
-    font-size: 16px !important;
-  }
-
-  button {
-    min-width: 44px;
-  }
-
-  button svg {
-    flex: 0 0 auto;
-  }
-
-  video,
-  img {
-    max-width: 100%;
-  }
-}
-
-@media (min-width: 768px) and (max-width: 1023px) {
-  :root {
-    --cm-page-gutter: 20px;
-  }
-
-  [style*="max-width: 480px"],
-  [style*="max-width: 520px"] {
-    max-width: min(100%, 620px) !important;
-  }
-}
-
-@media (min-width: 1024px) {
-  video,
-  img {
-    max-width: 100%;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    scroll-behavior: auto !important;
-    animation-duration: 0.001ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.001ms !important;
-  }
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{scroll-behavior:auto!important;animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}
 }
