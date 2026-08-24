@@ -48,10 +48,28 @@ button,[role="button"]{min-height:var(--cm-touch-size)}
   [style*="height: 100vh"]{height:100dvh!important;min-height:0}
   input,textarea,select{font-size:16px!important}
   button{min-width:44px}
+
+  .cm-event-card,.cm-club-card{min-width:0!important;max-width:100%!important;padding:14px!important}
+  .cm-swipe-card{border-radius:20px!important}
+  .cm-sheet-overlay{padding:0!important}
+  .cm-sheet-panel{width:100%!important;max-width:640px!important;max-height:min(86dvh,760px)!important;border-radius:20px 20px 0 0!important;padding-bottom:max(16px,env(safe-area-inset-bottom))!important}
+  .cm-comments-sheet{max-height:min(84dvh,720px)!important}
+  .cm-create-sheet{max-height:88dvh!important;overflow-y:auto!important;-webkit-overflow-scrolling:touch}
+  .cm-sheet-panel button{min-height:48px!important}
+  .cm-sheet-panel input,.cm-sheet-panel textarea{min-height:46px}
+  .cm-sheet-panel textarea{font-size:16px!important}
+  .cm-swipe-card > div:last-child{padding:52px 16px 18px!important}
+  .cm-swipe-card > div:first-child > div{width:132px!important;height:132px!important;font-size:46px!important}
 }
 
 @media(min-width:768px) and (max-width:1023px){
   :root{--cm-page-gutter:20px}
+  .cm-event-card,.cm-club-card{padding:18px!important}
+  .cm-sheet-panel{max-width:560px!important}
+}
+
+@media(min-width:1024px){
+  .cm-app-content{max-width:1180px;margin:0 auto;padding-left:24px;padding-right:24px}
 }
 
 @media(prefers-reduced-motion:reduce){
