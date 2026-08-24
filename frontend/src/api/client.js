@@ -1,13 +1,5 @@
 /**
  * Central Axios client for the CampusMate backend.
- *
- * The App.jsx shipped in this folder is still the Phase-1/2 UI prototype —
- * it holds posts/reels/matches in local React state so the interface can be
- * demoed instantly. Wiring it to this real backend is a mechanical, page-by-page
- * job: swap each `useState(DEMO_DATA)` for a `useEffect` that calls the matching
- * function below, and swap each local mutation (`setPosts(...)`) for the
- * matching POST/DELETE call followed by a state refresh. That work is not done
- * in this pass — see the "Frontend integration" section of the root README.
  */
 import axios from "axios";
 
@@ -24,14 +16,12 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response?.status === 401) {
-      localStorage.removeItem("cm_token");
-    }
+    if (err.response?.status === 401) localStorage.removeItem("cm_token");
     return Promise.reject(err);
   }
 );
 
-// ---- Colleges (multi-college support — search or add, never hardcoded) ----
+// ---- Colleges ----
 export const searchColleges = (q) => api.get("/colleges", { params: { search: q } }).then((r) => r.data.colleges);
 export const addCollege = (payload) => api.post("/colleges", payload).then((r) => r.data.college);
 
@@ -41,33 +31,40 @@ export const loginUser = (payload) => api.post("/auth/login", payload).then((r) 
 export const fetchMe = () => api.get("/auth/me").then((r) => r.data.user);
 
 // ---- Feed / Posts ----
-export const fetchFeed = (filter, page = 1) =>
-  api.get("/feed", { params: { filter, page } }).then((r) => r.data);
-export const createPost = (formData) =>
-  api.post("/posts", formData, { headers: { "Content-Type": "multipart/form-data" } }).then((r) => r.data.post);
+export const fetchFeed = (filter, page = 1) => api.get("/feed", { params: { filter, page } }).then((r) => r.data);
+export const createPost = (formData) => api.post("/posts", formData).then((r) => r.data.post);
 export const likePost = (id) => api.post(`/posts/${id}/like`).then((r) => r.data);
 export const savePost = (id) => api.post(`/posts/${id}/save`).then((r) => r.data);
 export const fetchComments = (postId) => api.get(`/posts/${postId}/comments`).then((r) => r.data.comments);
 export const addComment = (postId, text) => api.post(`/posts/${postId}/comments`, { text }).then((r) => r.data.comment);
+export const deletePost = (id) => api.delete(`/posts/${id}`).then((r) => r.data);
 
 // ---- Reels ----
-export const fetchReels = (college, page = 1) =>
-  api.get("/reels", { params: { college, page } }).then((r) => r.data.reels);
+export const fetchReels = (college, page = 1) => api.get("/reels", { params: { college, page } }).then((r) => r.data.reels);
 export const fetchTrendingReels = () => api.get("/reels/trending").then((r) => r.data.reels);
+export const createReel = (formData) => api.post("/reels", formData).then((r) => r.data.reel);
+export const uploadReelThumbnail = (id, file) => {
+  const form = new FormData();
+  form.append("thumbnail", file);
+  return api.post(`/reels/${id}/thumbnail`, form).then((r) => r.data.reel);
+};
 export const likeReel = (id) => api.post(`/reels/${id}/like`).then((r) => r.data);
+export const saveReel = (id) => api.post(`/reels/${id}/save`).then((r) => r.data);
 export const registerReelView = (id) => api.post(`/reels/${id}/view`).then((r) => r.data);
+export const deleteReel = (id) => api.delete(`/reels/${id}`).then((r) => r.data);
 
 // ---- Stories ----
 export const fetchStories = () => api.get("/stories").then((r) => r.data.stories);
+export const createStory = (formData) => api.post("/stories", formData).then((r) => r.data.story);
 export const viewStory = (id) => api.post(`/stories/${id}/view`).then((r) => r.data);
+export const deleteStory = (id) => api.delete(`/stories/${id}`).then((r) => r.data);
 
 // ---- Discovery / Matching ----
-export const fetchDiscoverCandidates = (college) =>
-  api.get("/discover", { params: { college } }).then((r) => r.data.candidates);
+export const fetchDiscoverCandidates = (college) => api.get("/discover", { params: { college } }).then((r) => r.data.candidates);
 export const swipe = (to, action) => api.post("/swipes", { to, action }).then((r) => r.data);
 export const fetchMatches = () => api.get("/matches").then((r) => r.data.matches);
 
-// ---- Messages (history over REST; live delivery over Socket.IO — see src/socket.js) ----
+// ---- Messages ----
 export const fetchMessages = (matchId) => api.get(`/messages/${matchId}`).then((r) => r.data.messages);
 
 // ---- Explore / Clubs / Events / Search ----
@@ -88,5 +85,5 @@ export const unfollowUser = (id) => api.delete(`/users/${id}/follow`).then((r) =
 export const uploadProfilePhoto = (userId, file) => {
   const form = new FormData();
   form.append("photo", file);
-  return api.post(`/users/${userId}/photo`, form, { headers: { "Content-Type": "multipart/form-data" } }).then((r) => r.data);
+  return api.post(`/users/${userId}/photo`, form).then((r) => r.data);
 };
