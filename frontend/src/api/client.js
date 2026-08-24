@@ -32,12 +32,20 @@ export const fetchMe = () => api.get("/auth/me").then((r) => r.data.user);
 
 // ---- Feed / Posts ----
 export const fetchFeed = (filter, page = 1) => api.get("/feed", { params: { filter, page } }).then((r) => r.data);
+export const fetchPost = (id) => api.get(`/posts/${id}`).then((r) => r.data.post);
 export const createPost = (formData) => api.post("/posts", formData).then((r) => r.data.post);
 export const likePost = (id) => api.post(`/posts/${id}/like`).then((r) => r.data);
 export const savePost = (id) => api.post(`/posts/${id}/save`).then((r) => r.data);
+export const sharePost = (id) => api.post(`/posts/${id}/share`).then((r) => r.data);
 export const fetchComments = (postId) => api.get(`/posts/${postId}/comments`).then((r) => r.data.comments);
 export const addComment = (postId, text) => api.post(`/posts/${postId}/comments`, { text }).then((r) => r.data.comment);
 export const deletePost = (id) => api.delete(`/posts/${id}`).then((r) => r.data);
+export const reportPost = (id, reason, details = "") => api.post("/reports", {
+  targetType: "post",
+  targetId: id,
+  reason,
+  details,
+}).then((r) => r.data.report);
 
 // ---- Reels ----
 export const fetchReels = (college, page = 1) => api.get("/reels", { params: { college, page } }).then((r) => r.data.reels);
