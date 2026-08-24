@@ -5,6 +5,7 @@ export * from "./useAppNavigation";
 export * from "./useCampusMateProfile";
 export * from "./useCampusMateOverlays";
 export * from "./useCampusMateState";
+export * from "./useCampusMateRoot";
 export * from "./useMediaQuery";
 export * from "./useSocialActions";
 export * from "./useThemeMode";
