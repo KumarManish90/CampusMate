@@ -7,6 +7,7 @@ import PhaseCPostLayer from "./PhaseCPostLayer.jsx";
 import PhaseCPaginationLayer from "./PhaseCPaginationLayer.jsx";
 import PhaseDReelsLayer from "./PhaseDReelsLayer.jsx";
 import PhaseEStoriesLayer from "./PhaseEStoriesLayer.jsx";
+import CreateMediaShortcutLayer from "./CreateMediaShortcutLayer.jsx";
 import { installThemeBackgroundGuard } from "./themeBackgroundGuard.js";
 import "./responsive.css";
 import "./responsive-edge.css";
@@ -26,5 +27,6 @@ ReactDOM.createRoot(document.getElementById("root")).render(
     <PhaseCPaginationLayer />
     <PhaseDReelsLayer />
     <PhaseEStoriesLayer />
+    <CreateMediaShortcutLayer />
   </React.StrictMode>
 );
