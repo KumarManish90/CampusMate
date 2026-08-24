@@ -15,9 +15,11 @@ button,[role="button"]{min-height:var(--cm-touch-size)}
   body{width:100%}
   .cm-sidebar{display:none!important}
   .cm-bottomnav{display:flex!important;position:fixed!important;left:0!important;right:0!important;bottom:0!important;width:100%!important;min-height:calc(var(--cm-mobile-nav-height) + env(safe-area-inset-bottom))!important;padding:7px 8px max(7px,env(safe-area-inset-bottom))!important;box-sizing:border-box!important;z-index:9999!important;visibility:visible!important;opacity:1!important;align-items:center!important;justify-content:space-around!important;gap:2px!important;backdrop-filter:blur(18px) saturate(140%);-webkit-backdrop-filter:blur(18px) saturate(140%);box-shadow:0 -10px 30px rgba(0,0,0,.14)}
-  .cm-bottomnav button{min-width:52px!important;min-height:48px!important;padding:6px 5px!important;border-radius:14px}
+  .cm-bottomnav button{min-width:52px!important;min-height:48px!important;padding:6px 5px!important;border-radius:14px;display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;gap:3px!important;position:relative!important;font-size:10px!important;font-weight:700!important}
+  .cm-bottomnav button.is-active{background:rgba(109,93,246,.10)!important}
   .cm-bottomnav button:active{transform:scale(.96)}
-  .cm-bottomnav button:nth-child(3){min-width:50px!important;min-height:50px!important}
+  .cm-bottomnav-create{min-width:50px!important;min-height:50px!important;border-radius:17px!important;background:linear-gradient(135deg,#6D5DF6,#8B7CFF)!important;color:#fff!important;box-shadow:0 7px 18px rgba(109,93,246,.28)}
+  .cm-bottomnav button i{position:absolute;top:4px;right:10px;width:7px;height:7px;border-radius:50%;background:#FB4570;border:2px solid var(--cm-bg,#fff)}
   .cm-bottomnav+*{padding-bottom:calc(var(--cm-mobile-nav-height) + env(safe-area-inset-bottom))!important}
   .cm-bottomnav ~ *{padding-bottom:calc(var(--cm-mobile-nav-height) + env(safe-area-inset-bottom))!important}
   [style*="width: 100%"]{max-width:100%!important}
@@ -40,7 +42,6 @@ button,[role="button"]{min-height:var(--cm-touch-size)}
   .cm-topbar button{width:44px!important;height:44px!important;min-width:44px!important;min-height:44px!important}
   .cm-topbar + *{min-width:0!important}
 
-  /* Home / section rhythm */
   [style*="display: flex"][style*="overflow-x: auto"]{gap:10px!important;padding-bottom:4px!important}
   [style*="display: grid"][style*="repeat(3,"]{grid-template-columns:repeat(2,minmax(0,1fr))!important}
   [style*="display: grid"][style*="repeat(4,"]{grid-template-columns:repeat(2,minmax(0,1fr))!important}
@@ -66,6 +67,9 @@ button,[role="button"]{min-height:var(--cm-touch-size)}
   .cm-chat-header{padding:10px var(--cm-page-gutter)!important;min-height:60px}
   .cm-chat-header button{min-width:48px!important;min-height:48px!important;padding:10px!important}
   .cm-chat-header > div{min-width:0!important}
+  .cm-chat-composer{padding:8px var(--cm-page-gutter) max(8px,env(safe-area-inset-bottom))!important;gap:7px!important}
+  .cm-chat-composer button{min-width:44px!important;min-height:44px!important;width:44px!important;height:44px!important;flex:0 0 44px!important}
+  .cm-chat-composer input{height:44px!important;min-height:44px!important}
 
   .cm-sheet-overlay{padding:0!important}
   .cm-sheet-panel{width:100%!important;max-width:640px!important;max-height:min(86dvh,760px)!important;border-radius:20px 20px 0 0!important;padding-bottom:max(16px,env(safe-area-inset-bottom))!important}
@@ -74,6 +78,7 @@ button,[role="button"]{min-height:var(--cm-touch-size)}
   .cm-sheet-panel button{min-height:48px!important}
   .cm-sheet-panel input,.cm-sheet-panel textarea{min-height:46px}
   .cm-sheet-panel textarea{font-size:16px!important}
+  .cm-sheet-panel button[aria-label="Close"]{min-width:44px!important;min-height:44px!important}
 
   .cm-media-frame{width:100%!important;max-width:100%!important;aspect-ratio:16/9!important;overflow:hidden!important;border-radius:14px!important}
   .cm-media-frame img,.cm-media-frame video{width:100%!important;height:100%!important;object-fit:cover!important}
