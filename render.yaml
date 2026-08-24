@@ -1,0 +1,42 @@
+services:
+  - type: web
+    name: campusmate-api
+    runtime: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: CLIENT_URL
+        sync: false
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: MEDIA_STORAGE_MODE
+        value: local
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: MAX_IMAGE_SIZE_MB
+        value: 10
+      - key: MAX_VIDEO_SIZE_MB
+        value: 100
+      - key: RATE_LIMIT_WINDOW_MIN
+        value: 15
+      - key: RATE_LIMIT_MAX
+        value: 300
+      - key: AUTH_RATE_LIMIT_MAX
+        value: 20
+      - key: ENABLE_DEMO_LOGIN
+        value: "true"
