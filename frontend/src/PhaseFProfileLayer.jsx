@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { Bookmark, Film, Image as ImageIcon, Loader2, LogOut, Pencil, Shield, X } from "lucide-react";
 import { fetchMe, fetchSavedContent, fetchUserPosts, fetchUserReels, updateUserProfile } from "./api/client";
 
@@ -36,9 +37,11 @@ function Modal({ title, onClose, children }) {
 
 const inputStyle={width:"100%",borderRadius:12,border:"1px solid rgba(255,255,255,.12)",background:"rgba(255,255,255,.04)",color:"#f4f2ff",padding:"10px 12px",fontSize:13};
 const iconBtn={width:38,height:38,borderRadius:11,border:"1px solid rgba(255,255,255,.12)",background:"transparent",color:"#fff",display:"grid",placeItems:"center"};
+const rowBtn={width:"100%",minHeight:50,borderRadius:14,border:"1px solid rgba(255,255,255,.1)",background:"rgba(255,255,255,.035)",color:"#f4f2ff",display:"flex",alignItems:"center",gap:10,padding:"0 14px",fontWeight:700,cursor:"pointer"};
+const primaryBtn={minHeight:44,border:"none",borderRadius:12,background:"linear-gradient(135deg,#6D5DF6,#A855F7)",color:"white",fontWeight:800,padding:"0 16px",cursor:"pointer"};
 
 export default function PhaseFProfileLayer() {
-  const [active,setActive]=useState(false); const [target,setTarget]=useState(null); const [tab,setTab]=useState("posts");
+  const [active,setActive]=useState(false); const [target,setTarget]=useState(null); const [portalHost,setPortalHost]=useState(null); const [tab,setTab]=useState("posts");
   const [me,setMe]=useState(null); const [posts,setPosts]=useState([]); const [reels,setReels]=useState([]); const [saved,setSaved]=useState({posts:[],reels:[]});
   const [loading,setLoading]=useState(false); const [modal,setModal]=useState(null); const [form,setForm]=useState({name:"",bio:"",branch:"",year:"",lookingFor:"",interests:""}); const [privacy,setPrivacy]=useState("campus");
 
@@ -55,17 +58,16 @@ export default function PhaseFProfileLayer() {
 
   useEffect(()=>{const sync=()=>{setActive(isProfileActive());setTarget(findProfileContentTarget());};sync();const mo=new MutationObserver(sync);mo.observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:["style"]});return()=>mo.disconnect();},[]);
   useEffect(()=>{if(active)load();},[active]);
-  useEffect(()=>{if(!active)return;const handler=(e)=>{const b=e.target instanceof Element?e.target.closest("button"):null;if(!b)return;const label=b.textContent?.trim();if(["Posts","Reels","Tagged","About"].includes(label)){setTab(label.toLowerCase());}};document.addEventListener("click",handler,true);return()=>document.removeEventListener("click",handler,true);},[active]);
+  useEffect(()=>{if(!active)return;const handler=(e)=>{const b=e.target instanceof Element?e.target.closest("button"):null;if(!b)return;const label=b.textContent?.trim();if(["Posts","Reels","Tagged","About"].includes(label))setTab(label.toLowerCase());};document.addEventListener("click",handler,true);return()=>document.removeEventListener("click",handler,true);},[active]);
 
   useEffect(()=>{
     if(!target)return;
     const old=target.style.display; target.style.display="none";
     let host=target.parentElement?.querySelector(":scope > [data-cm-profile-live]");
     if(!host){host=document.createElement("div");host.dataset.cmProfileLive="1";target.parentElement?.appendChild(host);} setPortalHost(host);
-    return()=>{target.style.display=old;host?.remove();};
+    return()=>{target.style.display=old;host?.remove();setPortalHost(null);};
   },[target]);
 
-  const [portalHost,setPortalHost]=useState(null);
   const saveProfile=async()=>{if(!me)return;const user=await updateUserProfile(me._id,{name:form.name,bio:form.bio,branch:form.branch,year:form.year,lookingFor:form.lookingFor,interests:form.interests.split(",").map(x=>x.trim()).filter(Boolean)});setMe(user);setModal(null);window.location.reload();};
   const savePrivacy=async()=>{if(!me)return;await updateUserProfile(me._id,{privacy});setModal(null);};
   const logout=()=>{localStorage.removeItem("cm_token");window.location.reload();};
@@ -84,12 +86,9 @@ export default function PhaseFProfileLayer() {
   },[loading,tab,posts,reels,saved]);
 
   if(!active||!portalHost)return null;
-  return <>{ReactDOM.createPortal(<div style={{marginTop:14}}>{body}</div>,portalHost)}
+  return <>{createPortal(<div style={{marginTop:14}}>{body}</div>,portalHost)}
     {modal==="edit"&&<Modal title="Edit Profile" onClose={()=>setModal(null)}><div style={{display:"grid",gap:10}}><input style={inputStyle} value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} placeholder="Name"/><textarea style={{...inputStyle,minHeight:90}} value={form.bio} onChange={e=>setForm(f=>({...f,bio:e.target.value}))} placeholder="Bio"/><input style={inputStyle} value={form.branch} onChange={e=>setForm(f=>({...f,branch:e.target.value}))} placeholder="Branch"/><input style={inputStyle} value={form.year} onChange={e=>setForm(f=>({...f,year:e.target.value}))} placeholder="Year"/><input style={inputStyle} value={form.lookingFor} onChange={e=>setForm(f=>({...f,lookingFor:e.target.value}))} placeholder="Looking for"/><input style={inputStyle} value={form.interests} onChange={e=>setForm(f=>({...f,interests:e.target.value}))} placeholder="Interests, comma separated"/><button onClick={saveProfile} style={primaryBtn}>Save profile</button></div></Modal>}
     {modal==="privacy"&&<Modal title="Privacy Settings" onClose={()=>setModal(null)}><select style={inputStyle} value={privacy} onChange={e=>setPrivacy(e.target.value)}><option value="campus">Campus only</option><option value="public">Public</option><option value="private">Private</option></select><button onClick={savePrivacy} style={{...primaryBtn,marginTop:12}}>Save privacy</button></Modal>}
     {modal==="saved"&&<Modal title="Saved Content" onClose={()=>setModal(null)}><div style={{fontSize:12,opacity:.65,marginBottom:10}}>Saved posts</div><CardGrid items={saved.posts||[]} kind="posts"/><div style={{fontSize:12,opacity:.65,margin:"16px 0 10px"}}>Saved reels</div><CardGrid items={saved.reels||[]} kind="reels"/></Modal>}
   </>;
 }
-
-const rowBtn={width:"100%",minHeight:50,borderRadius:14,border:"1px solid rgba(255,255,255,.1)",background:"rgba(255,255,255,.035)",color:"#f4f2ff",display:"flex",alignItems:"center",gap:10,padding:"0 14px",fontWeight:700,cursor:"pointer"};
-const primaryBtn={minHeight:44,border:"none",borderRadius:12,background:"linear-gradient(135deg,#6D5DF6,#A855F7)",color:"white",fontWeight:800,padding:"0 16px",cursor:"pointer"};
