@@ -40,22 +40,13 @@ export const sharePost = (id) => api.post(`/posts/${id}/share`).then((r) => r.da
 export const fetchComments = (postId) => api.get(`/posts/${postId}/comments`).then((r) => r.data.comments);
 export const addComment = (postId, text) => api.post(`/posts/${postId}/comments`, { text }).then((r) => r.data.comment);
 export const deletePost = (id) => api.delete(`/posts/${id}`).then((r) => r.data);
-export const reportPost = (id, reason, details = "") => api.post("/reports", {
-  targetType: "post",
-  targetId: id,
-  reason,
-  details,
-}).then((r) => r.data.report);
+export const reportPost = (id, reason, details = "") => api.post("/reports", { targetType: "post", targetId: id, reason, details }).then((r) => r.data.report);
 
 // ---- Reels ----
 export const fetchReels = (college, page = 1) => api.get("/reels", { params: { college, page } }).then((r) => r.data.reels);
 export const fetchTrendingReels = () => api.get("/reels/trending").then((r) => r.data.reels);
 export const createReel = (formData) => api.post("/reels", formData).then((r) => r.data.reel);
-export const uploadReelThumbnail = (id, file) => {
-  const form = new FormData();
-  form.append("thumbnail", file);
-  return api.post(`/reels/${id}/thumbnail`, form).then((r) => r.data.reel);
-};
+export const uploadReelThumbnail = (id, file) => { const form = new FormData(); form.append("thumbnail", file); return api.post(`/reels/${id}/thumbnail`, form).then((r) => r.data.reel); };
 export const likeReel = (id) => api.post(`/reels/${id}/like`).then((r) => r.data);
 export const saveReel = (id) => api.post(`/reels/${id}/save`).then((r) => r.data);
 export const registerReelView = (id) => api.post(`/reels/${id}/view`).then((r) => r.data);
@@ -89,9 +80,10 @@ export const fetchNotifications = () => api.get("/notifications").then((r) => r.
 export const followUser = (id) => api.post(`/users/${id}/follow`).then((r) => r.data);
 export const unfollowUser = (id) => api.delete(`/users/${id}/follow`).then((r) => r.data);
 
-// ---- Profile photo ----
-export const uploadProfilePhoto = (userId, file) => {
-  const form = new FormData();
-  form.append("photo", file);
-  return api.post(`/users/${userId}/photo`, form).then((r) => r.data);
-};
+// ---- Profile ----
+export const updateUserProfile = (userId, payload) => api.put(`/users/${userId}`, payload).then((r) => r.data.user);
+export const fetchUserPosts = (userId) => api.get(`/users/${userId}/posts`).then((r) => r.data.posts);
+export const fetchUserReels = (userId) => api.get(`/users/${userId}/reels`).then((r) => r.data.reels);
+export const fetchSavedContent = (userId) => api.get(`/users/${userId}/saved`).then((r) => r.data);
+export const uploadProfilePhoto = (userId, file) => { const form = new FormData(); form.append("photo", file); return api.post(`/users/${userId}/photo`, form).then((r) => r.data); };
+export const removeProfilePhoto = (userId) => api.delete(`/users/${userId}/photo`).then((r) => r.data.user);
