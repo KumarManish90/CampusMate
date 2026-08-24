@@ -6,24 +6,19 @@ import PhaseDReelsLayer from "./PhaseDReelsLayer.jsx";
 import PhaseEStoriesLayer from "./PhaseEStoriesLayer.jsx";
 import PhaseFProfileLayer from "./PhaseFProfileLayer.jsx";
 import CreateMediaShortcutLayer from "./CreateMediaShortcutLayer.jsx";
+import LiveChatLayer from "./LiveChatLayer.jsx";
 
-/**
- * Temporary compatibility boundary while App.jsx is migrated from seeded/demo
- * state to backend-driven React state. Keeping all compatibility layers behind
- * one component prevents new code from depending on DOM-injection layers and
- * gives us a single place to retire them as each native feature lands.
- */
+/** Temporary compatibility boundary while the monolithic demo App is retired. */
 export default function StabilizationLayers() {
-  return (
-    <>
-      <MediaUploadLayer />
-      <LiveMediaHydrator />
-      <PhaseCPostLayer />
-      <PhaseCPaginationLayer />
-      <PhaseDReelsLayer />
-      <PhaseEStoriesLayer />
-      <PhaseFProfileLayer />
-      <CreateMediaShortcutLayer />
-    </>
-  );
+  return <>
+    <MediaUploadLayer />
+    <LiveMediaHydrator />
+    <PhaseCPostLayer />
+    <PhaseCPaginationLayer />
+    <PhaseDReelsLayer />
+    <PhaseEStoriesLayer />
+    <PhaseFProfileLayer />
+    <LiveChatLayer />
+    <CreateMediaShortcutLayer />
+  </>;
 }
