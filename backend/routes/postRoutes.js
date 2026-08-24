@@ -1,11 +1,12 @@
 const express = require("express");
 const Post = require("../models/Post");
 const User = require("../models/User");
+const Comment = require("../models/Comment");
 const { Follow } = require("../models/Social");
 const { Notification } = require("../models/Campus");
 const { requireAuth, optionalAuth } = require("../middleware/auth");
 const { uploadPostMedia } = require("../middleware/upload");
-const { saveUploadedFile } = require("../config/media");
+const { saveUploadedFile, deleteStoredFile } = require("../config/media");
 const { asyncHandler, paginate, scorePost } = require("../utils/helpers");
 
 const router = express.Router();
@@ -28,13 +29,9 @@ router.get(
       if (!req.user) return res.json({ posts: [], page, hasMore: false });
       query.author = { $in: followingIds };
     } else if (filter && filter !== "For You" && filter !== "All") {
-      // Any college name is valid now (multi-college support) — not just
-      // the original three launch colleges.
       query.college = filter;
     }
 
-    // Pull a slightly larger recent window, then rank in-app (keeps ranking readable/tunable
-    // without needing a separate materialized "score" field for this dataset size).
     const candidates = await Post.find(query)
       .sort({ createdAt: -1 })
       .limit(200)
@@ -100,8 +97,14 @@ router.delete(
     if (String(post.author) !== String(req.user._id) && !req.user.isAdmin) {
       return res.status(403).json({ message: "You can only delete your own posts." });
     }
+
+    await Promise.all((post.media || []).map((media) => deleteStoredFile(media)));
+    await Promise.all([
+      Comment.deleteMany({ post: post._id }),
+      Notification.deleteMany({ post: post._id }),
+    ]);
     await post.deleteOne();
-    res.json({ message: "Post deleted." });
+    res.json({ message: "Post and related media deleted." });
   })
 );
 
