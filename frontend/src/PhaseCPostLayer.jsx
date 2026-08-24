@@ -32,12 +32,9 @@ function findPostCardFromButton(button) {
   let node = button;
   for (let i = 0; i < 10 && node; i += 1) {
     if (node.tagName === "DIV") {
-      const text = normalize(node.textContent);
-      const hasActions = Array.from(node.querySelectorAll(":scope button")).some((b) => normalize(b.textContent) === "Share");
+      const hasShare = Array.from(node.querySelectorAll("button")).some((b) => normalize(b.textContent) === "Share");
       const style = node.getAttribute("style") || "";
-      if (hasActions && (style.includes("border-radius: 20px") || style.includes("margin-bottom: 16px") || style.includes("padding: 16px"))) {
-        return node;
-      }
+      if (hasShare && (style.includes("border-radius: 20px") || style.includes("margin-bottom: 16px") || style.includes("padding: 16px"))) return node;
     }
     node = node.parentElement;
   }
@@ -45,34 +42,22 @@ function findPostCardFromButton(button) {
 }
 
 function findMoreButtons() {
-  const selectors = [
-    "button:has(svg.lucide-ellipsis)",
-    "button:has(svg.lucide-more-horizontal)",
-    "button:has(svg[class*='ellipsis'])",
-  ];
-  for (const selector of selectors) {
-    try {
-      const found = Array.from(document.querySelectorAll(selector));
-      if (found.length) return found;
-    } catch (_) {}
-  }
   return Array.from(document.querySelectorAll("button")).filter((button) => {
     const svg = button.querySelector("svg");
     if (!svg || normalize(button.textContent)) return false;
     const cls = svg.getAttribute("class") || "";
-    return /ellipsis|more-horizontal/i.test(cls);
+    const aria = button.getAttribute("aria-label") || "";
+    return /ellipsis|more-horizontal/i.test(cls) || /post actions/i.test(aria);
   });
 }
 
 function matchPostToCard(card, posts) {
   const cardText = normalize(card.textContent);
-  const exact = posts.find((post) => post.caption && cardText.includes(normalize(post.caption)));
-  if (exact) return exact;
-
-  const authorName = normalize(card.querySelector("span")?.textContent);
+  const byCaption = posts.find((post) => post.caption && cardText.includes(normalize(post.caption)));
+  if (byCaption) return byCaption;
   return posts.find((post) => {
     const name = normalize(post.author?.name);
-    return name && authorName && (authorName.includes(name) || cardText.includes(name));
+    return name && cardText.includes(name);
   }) || null;
 }
 
@@ -81,9 +66,9 @@ function makeMenuButton(label, onClick, danger = false) {
   button.type = "button";
   button.textContent = label;
   Object.assign(button.style, {
-    width: "100%", textAlign: "left", border: "none", background: "transparent",
+    width: "100%", minHeight: "44px", textAlign: "left", border: "none", background: "transparent",
     color: danger ? "#fb607f" : "inherit", padding: "10px 12px", borderRadius: "9px",
-    cursor: "pointer", fontSize: "12.5px", fontWeight: "700", minHeight: "40px"
+    cursor: "pointer", fontSize: "12.5px", fontWeight: "700"
   });
   button.addEventListener("click", onClick);
   return button;
@@ -101,9 +86,25 @@ function themeIsDark() {
   return bg !== "rgb(245, 245, 251)" && bg !== "rgb(255, 255, 255)";
 }
 
+function refreshCommentCount(commentButton, postId) {
+  return fetchComments(postId).then((comments) => {
+    const count = Array.isArray(comments) ? comments.length : 0;
+    const countNode = Array.from(commentButton.querySelectorAll("span")).find((s) => /^\d+$/.test(normalize(s.textContent)));
+    if (countNode) countNode.textContent = String(count);
+    return count;
+  });
+}
+
+function incrementShareCount(shareButton, result) {
+  const count = result?.sharesCount;
+  if (!Number.isFinite(count)) return;
+  const spans = Array.from(shareButton.querySelectorAll("span"));
+  const numeric = spans.find((s) => /^\d+$/.test(normalize(s.textContent)));
+  if (numeric) numeric.textContent = String(count);
+}
+
 function attachActions(card, post, me, moreButton) {
   if (!card || !post || !moreButton) return;
-
   card.dataset.cmPhaseC = "1";
   card.dataset.postId = post._id;
   card.style.position = "relative";
@@ -119,14 +120,12 @@ function attachActions(card, post, me, moreButton) {
   if (shareButton && !shareButton.dataset.cmShare) {
     shareButton.dataset.cmShare = "1";
     shareButton.addEventListener("click", async (event) => {
-      event.stopPropagation();
+      event.preventDefault(); event.stopPropagation();
       try {
         const result = await sharePost(post._id);
-        if (navigator.share) {
-          await navigator.share({ title: "CampusMate post", text: post.caption || "CampusMate post", url: window.location.href }).catch(() => {});
-        } else if (navigator.clipboard) {
-          await navigator.clipboard.writeText(window.location.href).catch(() => {});
-        }
+        incrementShareCount(shareButton, result);
+        if (navigator.share) await navigator.share({ title: "CampusMate post", text: post.caption || "CampusMate post", url: window.location.href }).catch(() => {});
+        else if (navigator.clipboard) await navigator.clipboard.writeText(window.location.href).catch(() => {});
         toast(`Shared${Number.isFinite(result?.sharesCount) ? ` · ${result.sharesCount}` : ""}`);
       } catch (error) {
         toast(error.response?.data?.message || "Could not share post", "error");
@@ -136,97 +135,84 @@ function attachActions(card, post, me, moreButton) {
 
   if (commentButton && !commentButton.dataset.cmComments) {
     commentButton.dataset.cmComments = "1";
-    commentButton.addEventListener("click", async () => {
-      try {
-        const comments = await fetchComments(post._id);
-        const count = Array.isArray(comments) ? comments.length : 0;
-        const countNode = Array.from(commentButton.querySelectorAll("span")).find((s) => /^\d+$/.test(normalize(s.textContent)));
-        if (countNode) countNode.textContent = String(count);
-      } catch (_) {}
-    });
+    commentButton.addEventListener("click", () => refreshCommentCount(commentButton, post._id).catch(() => {}));
+    refreshCommentCount(commentButton, post._id).catch(() => {});
   }
 
   if (moreButton.dataset.cmMenu === "1") return;
   moreButton.dataset.cmMenu = "1";
   moreButton.setAttribute("aria-label", "Post actions");
+  moreButton.style.minWidth = "40px";
+  moreButton.style.minHeight = "40px";
 
   moreButton.addEventListener("click", (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-
+    event.preventDefault(); event.stopPropagation();
     const existing = card.querySelector(":scope > .cm-phase-c-menu");
-    if (existing) {
-      existing.remove();
-      return;
-    }
+    if (existing) { existing.remove(); return; }
 
     closeMenus();
     const menu = document.createElement("div");
     menu.className = "cm-phase-c-menu";
+    menu.setAttribute("role", "menu");
     const dark = themeIsDark();
+    const rect = moreButton.getBoundingClientRect();
+    const narrow = window.innerWidth <= 520;
     Object.assign(menu.style, {
-      position: "absolute", right: "12px", top: "54px", zIndex: "300",
-      width: "172px", padding: "6px", borderRadius: "12px",
+      position: narrow ? "fixed" : "absolute",
+      right: narrow ? `${Math.max(12, window.innerWidth - rect.right)}px` : "12px",
+      top: narrow ? `${Math.min(window.innerHeight - 150, rect.bottom + 6)}px` : "54px",
+      zIndex: "300", width: "172px", padding: "6px", borderRadius: "12px",
       background: dark ? "#15182a" : "#fff", color: dark ? "#f2f1fb" : "#14121f",
       border: dark ? "1px solid rgba(255,255,255,.12)" : "1px solid rgba(20,18,31,.10)",
       boxShadow: "0 18px 42px rgba(0,0,0,.28)"
     });
 
     const own = String(post.author?._id || post.author) === String(me?._id);
-    if (own) {
-      menu.appendChild(makeMenuButton("Delete post", async (e) => {
-        e.stopPropagation();
-        if (!window.confirm("Delete this post?")) return;
-        try {
+    menu.appendChild(makeMenuButton(own ? "Delete post" : "Report post", async (e) => {
+      e.stopPropagation();
+      try {
+        if (own) {
+          if (!window.confirm("Delete this post?")) return;
           await deletePost(post._id);
           card.remove();
-          closeMenus();
           toast("Post deleted");
           window.dispatchEvent(new Event("cm-posts-changed"));
-        } catch (error) {
-          toast(error.response?.data?.message || "Could not delete post", "error");
-        }
-      }, true));
-    } else {
-      menu.appendChild(makeMenuButton("Report post", async (e) => {
-        e.stopPropagation();
-        try {
+        } else {
           await reportPost(post._id, "inappropriate_content", "Reported from post menu");
-          closeMenus();
           toast("Report submitted");
-        } catch (error) {
-          toast(error.response?.data?.message || "Could not report post", "error");
         }
-      }, true));
-    }
+        closeMenus();
+      } catch (error) {
+        toast(error.response?.data?.message || (own ? "Could not delete post" : "Could not report post"), "error");
+      }
+    }, own));
 
     menu.appendChild(makeMenuButton("Share", async (e) => {
       e.stopPropagation();
       try {
-        await sharePost(post._id);
-        closeMenus();
+        const result = await sharePost(post._id);
+        if (shareButton) incrementShareCount(shareButton, result);
+        if (navigator.share) await navigator.share({ title: "CampusMate post", text: post.caption || "CampusMate post", url: window.location.href }).catch(() => {});
+        else if (navigator.clipboard) await navigator.clipboard.writeText(window.location.href).catch(() => {});
         toast("Post shared");
+        closeMenus();
       } catch (error) {
         toast(error.response?.data?.message || "Could not share post", "error");
       }
     }));
 
-    card.appendChild(menu);
+    (narrow ? document.body : card).appendChild(menu);
   });
 }
 
 async function enhance() {
   if (!localStorage.getItem("cm_token")) return;
   try {
-    const [me, first] = await Promise.all([
-      fetchMe().catch(() => null),
-      fetchFeed("For You", 1),
-    ]);
+    const [me, first] = await Promise.all([fetchMe().catch(() => null), fetchFeed("For You", 1)]);
     const posts = first?.posts || [];
     if (!posts.length) return;
-
-    const moreButtons = findMoreButtons();
-    moreButtons.forEach((moreButton) => {
+    findMoreButtons().forEach((moreButton) => {
+      if (moreButton.closest("[data-cm-paged-post]")) return;
       if (moreButton.dataset.cmMenu === "1") return;
       const card = findPostCardFromButton(moreButton);
       const post = card ? matchPostToCard(card, posts) : null;
@@ -237,38 +223,45 @@ async function enhance() {
 
 export default function PhaseCPostLayer() {
   const running = useRef(false);
-
   useEffect(() => {
     const run = () => {
       if (running.current) return;
       running.current = true;
       enhance().finally(() => { running.current = false; });
     };
-
     run();
     const observer = new MutationObserver(() => {
       clearTimeout(observer._timer);
-      observer._timer = setTimeout(run, 180);
+      observer._timer = setTimeout(run, 160);
     });
     const root = document.getElementById("root");
     if (root) observer.observe(root, { childList: true, subtree: true });
 
-    const changed = () => setTimeout(run, 180);
+    const changed = () => setTimeout(run, 160);
     window.addEventListener("cm-posts-changed", changed);
     window.addEventListener("cm-media-uploaded", changed);
+    document.addEventListener("cm-posts-page-loaded", changed);
 
     const outsideClick = (event) => {
       if (!event.target.closest?.(".cm-phase-c-menu") && !event.target.closest?.("button[data-cm-menu='1']")) closeMenus();
     };
+    const keydown = (event) => { if (event.key === "Escape") closeMenus(); };
+    const resize = () => closeMenus();
     document.addEventListener("click", outsideClick);
+    document.addEventListener("keydown", keydown);
+    window.addEventListener("resize", resize);
+    window.addEventListener("scroll", resize, true);
 
     return () => {
       observer.disconnect();
       window.removeEventListener("cm-posts-changed", changed);
       window.removeEventListener("cm-media-uploaded", changed);
+      document.removeEventListener("cm-posts-page-loaded", changed);
       document.removeEventListener("click", outsideClick);
+      document.removeEventListener("keydown", keydown);
+      window.removeEventListener("resize", resize);
+      window.removeEventListener("scroll", resize, true);
     };
   }, []);
-
   return null;
 }
