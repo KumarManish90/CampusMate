@@ -6,7 +6,7 @@ const { Follow, Connection } = require("../models/Social");
 const { Notification } = require("../models/Campus");
 const { requireAuth, optionalAuth } = require("../middleware/auth");
 const { uploadProfilePhoto } = require("../middleware/upload");
-const { saveUploadedFile } = require("../config/media");
+const { saveUploadedFile, deleteStoredFile } = require("../config/media");
 const { asyncHandler, paginate } = require("../utils/helpers");
 
 const router = express.Router();
@@ -79,9 +79,14 @@ router.post(
     if (String(req.user._id) !== req.params.id) return res.status(403).json({ message: "You can only edit your own photo." });
     if (!req.file) return res.status(400).json({ message: "No image was uploaded." });
 
+    const previousPhoto = req.user.profilePhoto ? { ...req.user.profilePhoto.toObject?.(), ...req.user.profilePhoto } : null;
     const saved = await saveUploadedFile(req.file, "profile");
     req.user.profilePhoto = { url: saved.url, publicId: saved.publicId };
     await req.user.save();
+
+    if (previousPhoto?.url || previousPhoto?.publicId) {
+      await deleteStoredFile(previousPhoto).catch(() => null);
+    }
 
     res.json({ user: req.user.toPublicJSON(), message: "Profile photo updated successfully." });
   })
@@ -93,8 +98,12 @@ router.delete(
   requireAuth,
   asyncHandler(async (req, res) => {
     if (String(req.user._id) !== req.params.id) return res.status(403).json({ message: "You can only edit your own photo." });
+    const previousPhoto = req.user.profilePhoto ? { ...req.user.profilePhoto.toObject?.(), ...req.user.profilePhoto } : null;
     req.user.profilePhoto = undefined;
     await req.user.save();
+    if (previousPhoto?.url || previousPhoto?.publicId) {
+      await deleteStoredFile(previousPhoto).catch(() => null);
+    }
     res.json({ user: req.user.toPublicJSON() });
   })
 );
