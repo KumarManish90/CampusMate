@@ -5,6 +5,7 @@ import MediaUploadLayer from "./MediaUploadLayer.jsx";
 import LiveMediaHydrator from "./LiveMediaHydrator.jsx";
 import PhaseCPostLayer from "./PhaseCPostLayer.jsx";
 import PhaseCPaginationLayer from "./PhaseCPaginationLayer.jsx";
+import PhaseDReelsLayer from "./PhaseDReelsLayer.jsx";
 import { installThemeBackgroundGuard } from "./themeBackgroundGuard.js";
 import "./responsive.css";
 import "./responsive-edge.css";
@@ -22,5 +23,6 @@ ReactDOM.createRoot(document.getElementById("root")).render(
     <LiveMediaHydrator />
     <PhaseCPostLayer />
     <PhaseCPaginationLayer />
+    <PhaseDReelsLayer />
   </React.StrictMode>
 );
