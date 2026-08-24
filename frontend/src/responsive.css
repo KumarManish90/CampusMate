@@ -29,8 +29,21 @@ button,[role="button"]{min-height:var(--cm-touch-size)}
   [style*="overflow-x: auto"]>*{scroll-snap-align:start}
   [style*="height: 72vh"]{height:calc(100dvh - 150px)!important;max-height:760px!important;min-height:460px!important;border-radius:16px!important}
   [style*="height: 100vh"]{height:100dvh!important;min-height:0}
+  [style*="gap: 18px"]{gap:14px!important}
+  [style*="gap: 20px"]{gap:14px!important}
   input,textarea,select{font-size:16px!important}
   button{min-width:44px}
+
+  /* Home / section rhythm */
+  [style*="display: flex"][style*="overflow-x: auto"]{gap:10px!important;padding-bottom:4px!important}
+  [style*="display: grid"][style*="repeat(3,"]{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  [style*="display: grid"][style*="repeat(4,"]{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  [style*="display: grid"][style*="repeat(5,"]{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  [style*="font-size: 28px"]{font-size:24px!important}
+  [style*="font-size: 26px"]{font-size:23px!important}
+  [style*="font-size: 24px"]{font-size:22px!important}
+  [style*="min-height: 160px"]{min-height:140px!important}
+  [style*="min-height: 180px"]{min-height:150px!important}
 
   .cm-event-card,.cm-club-card{min-width:0!important;max-width:100%!important;padding:14px!important}
   .cm-swipe-card{border-radius:20px!important;max-width:100%!important}
