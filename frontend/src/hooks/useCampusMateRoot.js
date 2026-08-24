@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 import { useCampusMateSession } from "./useCampusMateSession";
 import { useCampusMateFeed } from "./useCampusMateFeed";
 import { useCampusMateState } from "./useCampusMateState";
@@ -13,28 +13,31 @@ export function useCampusMateRoot({ api, initialPosts = [], initialReels = [], i
   const [matches, setMatches] = useState([]);
   const [following, setFollowing] = useState([1, 5]);
 
-  const sessionCallbacks = useMemo(() => ({
-    onUser: (user) => {
-      setAuthUser(user);
-      ui.mergeProfile({
-        name: user?.name || ui.profile.name,
-        college: user?.college || ui.profile.college,
-        branch: user?.branch || "",
-        year: user?.year || "",
-        bio: user?.bio || "",
-        interests: user?.interests || [],
-        lookingFor: user?.lookingFor || "",
-      });
-      ui.openApp();
-    },
-    onBackendStatus: setBackendOnline,
-    onSessionState: ({ checking, authenticated: nextAuthenticated }) => {
-      if (typeof checking === "boolean") setCheckingSession(checking);
-      if (typeof nextAuthenticated === "boolean") setAuthenticated(nextAuthenticated);
-    },
-  }), [ui]);
+  const onUser = useCallback((user) => {
+    setAuthUser(user);
+    ui.mergeProfile({
+      name: user?.name || ui.profile.name,
+      college: user?.college || ui.profile.college,
+      branch: user?.branch || "",
+      year: user?.year || "",
+      bio: user?.bio || "",
+      interests: user?.interests || [],
+      lookingFor: user?.lookingFor || "",
+    });
+    ui.openApp();
+  }, [ui.mergeProfile, ui.openApp, ui.profile.college, ui.profile.name]);
 
-  useCampusMateSession({ api, ...sessionCallbacks });
+  const onSessionState = useCallback(({ checking, authenticated: nextAuthenticated }) => {
+    if (typeof checking === "boolean") setCheckingSession(checking);
+    if (typeof nextAuthenticated === "boolean") setAuthenticated(nextAuthenticated);
+  }, []);
+
+  useCampusMateSession({
+    api,
+    onUser,
+    onBackendStatus: setBackendOnline,
+    onSessionState,
+  });
 
   const feed = useCampusMateFeed({
     api,
