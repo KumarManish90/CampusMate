@@ -4,7 +4,7 @@
 import axios from "axios";
 
 const API_URL = import.meta.env.VITE_API_URL || "https://campusmate-87k6.onrender.com/api";
-
+export const API_ORIGIN = API_URL.replace(/\/api\/?$/, "");
 export const api = axios.create({ baseURL: API_URL });
 
 api.interceptors.request.use((config) => {
@@ -16,7 +16,10 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response?.status === 401) localStorage.removeItem("cm_token");
+    if (err.response?.status === 401) {
+      localStorage.removeItem("cm_token");
+      window.dispatchEvent(new CustomEvent("cm-auth-expired"));
+    }
     return Promise.reject(err);
   }
 );
@@ -64,7 +67,8 @@ export const swipe = (to, action) => api.post("/swipes", { to, action }).then((r
 export const fetchMatches = () => api.get("/matches").then((r) => r.data.matches);
 
 // ---- Messages ----
-export const fetchMessages = (matchId) => api.get(`/messages/${matchId}`).then((r) => r.data.messages);
+export const fetchMessages = (matchId, page = 1) => api.get(`/messages/${matchId}`, { params: { page } }).then((r) => r.data.messages);
+export const sendMessage = (matchId, text) => api.post("/messages", { matchId, text }).then((r) => r.data.message);
 
 // ---- Explore / Clubs / Events / Search ----
 export const fetchClubs = (college) => api.get("/clubs", { params: { college } }).then((r) => r.data.clubs);
