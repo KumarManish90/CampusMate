@@ -7,5 +7,6 @@ export * from "./useCampusMateOverlays";
 export * from "./useCampusMateState";
 export * from "./useCampusMateRoot";
 export * from "./useMediaQuery";
+export * from "./useResponsiveBreakpoints";
 export * from "./useSocialActions";
 export * from "./useThemeMode";
