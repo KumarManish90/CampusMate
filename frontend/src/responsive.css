@@ -1,7 +1,9 @@
 /* CampusMate — Phase A: mobile-first responsive foundation */
-:root{--cm-mobile-nav-height:72px;--cm-touch-size:44px;--cm-page-gutter:16px}
-html{-webkit-text-size-adjust:100%;text-size-adjust:100%;overflow-x:hidden}
-body{margin:0;min-width:320px;overflow-x:hidden;overscroll-behavior-x:none}
+:root{--cm-mobile-nav-height:72px;--cm-touch-size:44px;--cm-page-gutter:16px;--cm-page-bg:#0A0D1A}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%;overflow-x:hidden;min-height:100%;background:var(--cm-page-bg)}
+body{margin:0;min-width:320px;min-height:100dvh;overflow-x:hidden;overscroll-behavior-x:none;background:var(--cm-page-bg)}
+#root{min-height:100dvh;background:var(--cm-page-bg)}
+#root>div{min-height:100dvh}
 *,*::before,*::after{box-sizing:border-box}
 button,a,input,textarea,select{-webkit-tap-highlight-color:transparent}
 button{touch-action:manipulation}
@@ -12,7 +14,8 @@ button,[role="button"]{min-height:var(--cm-touch-size)}
 
 @media(max-width:860px){
   :root{--cm-page-gutter:14px}
-  body{width:100%}
+  body{width:100%;background:var(--cm-page-bg)!important}
+  #root,#root>div{width:100%;min-height:100dvh;background:var(--cm-page-bg)}
   .cm-sidebar{display:none!important}
   .cm-bottomnav{display:flex!important;position:fixed!important;left:0!important;right:0!important;bottom:0!important;width:100%!important;min-height:calc(var(--cm-mobile-nav-height) + env(safe-area-inset-bottom))!important;padding:7px 8px max(7px,env(safe-area-inset-bottom))!important;box-sizing:border-box!important;z-index:9999!important;visibility:visible!important;opacity:1!important;align-items:center!important;justify-content:space-around!important;gap:2px!important;backdrop-filter:blur(18px) saturate(140%);-webkit-backdrop-filter:blur(18px) saturate(140%);box-shadow:0 -10px 30px rgba(0,0,0,.14)}
   .cm-bottomnav button{min-width:52px!important;min-height:48px!important;padding:6px 5px!important;border-radius:14px;display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;gap:3px!important;position:relative!important;font-size:10px!important;font-weight:700!important}
