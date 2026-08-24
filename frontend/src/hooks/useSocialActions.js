@@ -8,6 +8,7 @@ import { useCallback } from "react";
 export function useSocialActions({
   authUser,
   api,
+  following,
   setPosts,
   setReels,
   setFollowing,
@@ -26,14 +27,18 @@ export function useSocialActions({
   }, [api, authUser, setMatchModal, setMatches]);
 
   const toggleFollow = useCallback((id) => {
-    setFollowing((current) => {
-      const nextIsFollowing = !current.includes(id);
-      if (authUser) {
-        (nextIsFollowing ? api.followUser(id) : api.unfollowUser(id)).catch(() => {});
-      }
-      return nextIsFollowing ? [...current, id] : current.filter((item) => item !== id);
-    });
-  }, [api, authUser, setFollowing]);
+    const isFollowing = following.includes(id);
+    const next = isFollowing
+      ? following.filter((item) => item !== id)
+      : [...following, id];
+
+    setFollowing(next);
+
+    if (authUser) {
+      const request = isFollowing ? api.unfollowUser(id) : api.followUser(id);
+      request.catch(() => {});
+    }
+  }, [api, authUser, following, setFollowing]);
 
   const likePost = useCallback((id) => {
     setPosts((current) => current.map((post) => (
