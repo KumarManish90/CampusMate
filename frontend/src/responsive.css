@@ -1,5 +1,5 @@
 /* CampusMate — Phase A: mobile-first responsive foundation */
-:root{--cm-mobile-nav-height:72px;--cm-touch-size:44px;--cm-page-gutter:16px}
+:root{--cm-mobile-nav-height:72px;--cm-touch-size:44px;--cm-page-gutter:16px;--cm-content-max:1200px}
 html{-webkit-text-size-adjust:100%;text-size-adjust:100%;overflow-x:hidden}
 body{margin:0;min-width:320px;overflow-x:hidden;overscroll-behavior-x:none}
 *,*::before,*::after{box-sizing:border-box}
@@ -9,6 +9,9 @@ img,video,canvas,svg{max-width:100%}
 img,video{display:block}
 input,textarea,select{max-width:100%}
 button,[role="button"]{min-height:var(--cm-touch-size)}
+
+.cm-app-shell{width:100%;max-width:none;overflow-x:clip}
+.cm-app-content{width:100%;min-width:0}
 
 @media(max-width:860px){
   :root{--cm-page-gutter:14px}
@@ -35,8 +38,7 @@ button,[role="button"]{min-height:var(--cm-touch-size)}
   .cm-bottomnav button{min-width:52px!important;min-height:48px!important;padding:6px 5px!important;border-radius:14px}
   .cm-bottomnav button:active{transform:scale(.96)}
   .cm-bottomnav button:nth-child(3){min-width:50px!important;min-height:50px!important}
-  .cm-bottomnav+*{padding-bottom:calc(var(--cm-mobile-nav-height) + env(safe-area-inset-bottom))!important}
-  .cm-bottomnav ~ *{padding-bottom:calc(var(--cm-mobile-nav-height) + env(safe-area-inset-bottom))!important}
+  .cm-app-content{padding-bottom:calc(var(--cm-mobile-nav-height) + env(safe-area-inset-bottom))!important}
   [style*="width: 100%"]{max-width:100%!important}
   [style*="max-width: 480px"],[style*="max-width: 520px"],[style*="max-width: 640px"],[style*="max-width: 720px"],[style*="max-width: 860px"],[style*="max-width: 960px"],[style*="max-width: 1100px"]{width:100%!important;max-width:100%!important}
   [style*="padding: 22px 24px 6px"],[style*="padding: 20px 24px"],[style*="padding: 10px 24px"],[style*="padding: 16px 24px"],[style*="padding: 24px"]{padding-left:var(--cm-page-gutter)!important;padding-right:var(--cm-page-gutter)!important}
@@ -51,7 +53,13 @@ button,[role="button"]{min-height:var(--cm-touch-size)}
 }
 
 @media(min-width:768px) and (max-width:1023px){
-  :root{--cm-page-gutter:20px}
+  :root{--cm-page-gutter:20px;--cm-content-max:960px}
+  .cm-app-content{max-width:var(--cm-content-max);margin:0 auto}
+}
+
+@media(min-width:1024px){
+  :root{--cm-page-gutter:24px;--cm-content-max:1200px}
+  .cm-app-content{max-width:var(--cm-content-max);margin:0 auto}
 }
 
 @media(prefers-reduced-motion:reduce){
