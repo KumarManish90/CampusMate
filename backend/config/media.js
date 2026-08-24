@@ -47,4 +47,20 @@ async function saveUploadedFile(file, kind) {
   return { url: `/${relative.replace(/\\/g, "/")}`, publicId: null };
 }
 
-module.exports = { saveUploadedFile, MODE };
+async function deleteStoredFile(media) {
+  if (!media) return;
+
+  if (MODE === "cloudinary") {
+    if (!media.publicId) return;
+    await cloudinary.uploader.destroy(media.publicId, { resource_type: "image", invalidate: true })
+      .catch(async () => cloudinary.uploader.destroy(media.publicId, { resource_type: "video", invalidate: true }).catch(() => null));
+    return;
+  }
+
+  if (!media.url || !media.url.startsWith("/uploads/")) return;
+  const relativePath = media.url.replace(/^\//, "");
+  const absolutePath = path.resolve(process.cwd(), relativePath);
+  fs.unlink(absolutePath, () => {});
+}
+
+module.exports = { saveUploadedFile, deleteStoredFile, MODE };
