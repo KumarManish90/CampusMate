@@ -9,6 +9,7 @@ import {
   ChevronUp, ChevronDown, Clapperboard, Loader2, WifiOff
 } from "lucide-react";
 import * as cmApi from "./api/client";
+import { NativeMessages, NativeProfile, NativeReels, NativeStories } from "./NativeFeatures.jsx";
 
 /* ============================================================
    DESIGN TOKENS
@@ -1263,8 +1264,8 @@ function AnnouncementsRow({ t }) {
   );
 }
 
-function Feed({ t, profile, matches, posts, following, onToggleFollow, onLike, onSave, onOpenComments,
-                onOpenStory, onBell, setTab, onGoDiscover }) {
+function Feed({ t, profile, authUser, matches, posts, following, onToggleFollow, onLike, onSave, onOpenComments,
+                onOpenStory, onBell, setTab, onGoDiscover, onCreateStory }) {
   const stats = [
     { icon: Heart, label: "Matches", value: matches.length, color: TOKENS.like },
     { icon: MessageCircle, label: "Messages", value: matches.length ? matches.length + 3 : 0, color: TOKENS.super },
@@ -1276,7 +1277,7 @@ function Feed({ t, profile, matches, posts, following, onToggleFollow, onLike, o
     <div>
       <TopBar t={t} title={`Good morning, ${profile.name?.split(" ")[0] || "there"} 👋`} subtitle="Your campus. Your community." onBell={onBell} />
       <div style={{ padding: "6px 24px" }}>
-        <StoriesRow t={t} profile={profile} onOpen={onOpenStory} />
+        {authUser ? <NativeStories me={authUser} t={t} onCreate={onCreateStory} /> : <StoriesRow t={t} profile={profile} onOpen={onOpenStory} />}
 
         <AnnouncementsRow t={t} />
 
@@ -1451,23 +1452,21 @@ function Discover({ t, profile, onMatch, onServerMatch, authUser }) {
   const [filter, setFilter] = useState("All");
   const [liveCandidates, setLiveCandidates] = useState(null);
   const pool = useMemo(() => {
-    if (liveCandidates) return liveCandidates;
+    if (authUser) return liveCandidates || [];
     return filter === "All" ? STUDENTS : STUDENTS.filter((s) => s.college === filter);
-  }, [filter, liveCandidates]);
+  }, [authUser, filter, liveCandidates]);
   const [index, setIndex] = useState(0);
   const [dragState, setDragState] = useState({ x: 0, y: 0 });
   const [flash, setFlash] = useState(null);
 
   useEffect(() => setIndex(0), [filter]);
 
-  // Live candidates from the real backend (people who haven't been swiped on
-  // yet), falling back to the local demo pool on any failure so swiping
-  // always works even without a backend running.
+  // Authenticated discovery is server-owned; demo candidates are guest-only.
   useEffect(() => {
     if (!authUser) return;
     cmApi.fetchDiscoverCandidates(filter === "All" ? undefined : filter)
       .then((list) => setLiveCandidates((list || []).map(adaptApiStudent)))
-      .catch(() => setLiveCandidates(null));
+      .catch(() => setLiveCandidates([]));
   }, [authUser, filter]);
 
   const current = pool[index];
@@ -1660,12 +1659,7 @@ function Explore({ t, profile, posts, following, onToggleFollow, onLike, onSave,
   const [postFilter, setPostFilter] = useState("For You");
   const [hashtagFocus, setHashtagFocus] = useState(null);
 
-  // Live-data layer: when signed in against a real backend, fetch actual
-  // feed/reels/student data per tab and adapt it into the same shape the
-  // (originally demo-only) card components already expect — see
-  // adaptApiPost/adaptApiReel/adaptApiStudent near the top of this file.
-  // Falls back to the local demo arrays (props/STUDENTS) on any failure,
-  // so this never blocks the UI even with no backend running.
+  // Authenticated tabs are server-owned; sample records are guest-only.
   const [livePosts, setLivePosts] = useState(null);
   const [liveReels, setLiveReels] = useState(null);
   const [liveStudents, setLiveStudents] = useState(null);
@@ -1677,44 +1671,42 @@ function Explore({ t, profile, posts, following, onToggleFollow, onLike, onSave,
       setLoadingLive(true);
       cmApi.fetchFeed(postFilter === "For You" ? undefined : postFilter, 1)
         .then((data) => setLivePosts((data.posts || []).map(adaptApiPost)))
-        .catch(() => setLivePosts(null))
+        .catch(() => setLivePosts([]))
         .finally(() => setLoadingLive(false));
     } else if (tab === "reels") {
       setLoadingLive(true);
       cmApi.fetchReels(filter === "All" ? undefined : filter, 1)
         .then((list) => setLiveReels((list || []).map(adaptApiReel)))
-        .catch(() => setLiveReels(null))
+        .catch(() => setLiveReels([]))
         .finally(() => setLoadingLive(false));
     } else if (tab === "students") {
       setLoadingLive(true);
       cmApi.api.get("/users", { params: { college: filter === "All" ? undefined : filter, q: query || undefined } })
         .then((r) => setLiveStudents((r.data.users || []).map(adaptApiStudent)))
-        .catch(() => setLiveStudents(null))
+        .catch(() => setLiveStudents([]))
         .finally(() => setLoadingLive(false));
     }
   }, [authUser, tab, postFilter, filter, query]);
 
-  const effectivePosts = livePosts ?? posts;
-  const effectiveReels = liveReels ?? reels;
-  const effectiveStudentsPool = liveStudents ?? STUDENTS;
+  const effectivePosts = authUser ? (livePosts || []) : posts;
+  const effectiveReels = authUser ? (liveReels || []) : reels;
+  const effectiveStudentsPool = authUser ? (liveStudents || []) : STUDENTS;
 
   const visiblePosts = useMemo(() => {
     let list = effectivePosts;
-    if (!livePosts) {
-      // client-side filtering only needed for the local demo fallback —
-      // live requests already asked the backend to filter server-side
+    if (!authUser) {
       if (postFilter === "Following") list = list.filter((p) => following.includes(p.authorId));
       else if (postFilter !== "For You") list = list.filter((p) => byId(p.authorId).college === postFilter);
     }
     if (hashtagFocus) list = list.filter((p) => p.hashtags.includes(hashtagFocus));
     return list;
-  }, [effectivePosts, livePosts, postFilter, following, hashtagFocus]);
+  }, [authUser, effectivePosts, postFilter, following, hashtagFocus]);
 
   const studentList = useMemo(() => {
-    let list = liveStudents ? effectiveStudentsPool : (filter === "All" ? STUDENTS : STUDENTS.filter((s) => s.college === filter));
-    if (!liveStudents && q) list = list.filter((s) => s.name.toLowerCase().includes(q) || s.branch.toLowerCase().includes(q) || s.interests.some((i) => i.toLowerCase().includes(q)));
+    let list = authUser ? effectiveStudentsPool : (filter === "All" ? STUDENTS : STUDENTS.filter((s) => s.college === filter));
+    if (!authUser && q) list = list.filter((s) => s.name.toLowerCase().includes(q) || s.branch.toLowerCase().includes(q) || s.interests.some((i) => i.toLowerCase().includes(q)));
     return list;
-  }, [filter, q, liveStudents, effectiveStudentsPool]);
+  }, [authUser, filter, q, effectiveStudentsPool]);
   const clubList = useMemo(() => q ? CLUBS.filter((c) => c.name.toLowerCase().includes(q)) : CLUBS, [q]);
   const eventList = useMemo(() => q ? EVENTS.filter((e) => e.title.toLowerCase().includes(q)) : EVENTS, [q]);
   const hashtagHits = useMemo(() => q ? HASHTAGS.filter((h) => h.toLowerCase().includes(q)) : [], [q]);
@@ -1815,10 +1807,9 @@ function Explore({ t, profile, posts, following, onToggleFollow, onLike, onSave,
           </div>
         )}
 
-        {tab === "reels" && (
+        {tab === "reels" && (authUser ? <NativeReels t={t}/> :
           <ReelsFeed t={t} reels={effectiveReels} onLike={wrappedOnLikeReel} onSave={wrappedOnSaveReel}
-            onOpenComments={onOpenReelComments} onView={onViewReel} />
-        )}
+            onOpenComments={onOpenReelComments} onView={onViewReel} />)}
 
         {tab === "students" && (
           <>
@@ -2559,6 +2550,9 @@ export default function CampusMateApp() {
     cmApi.fetchMe()
       .then((user) => {
         setAuthUser(user);
+        setPosts([]);
+        setReels([]);
+        setMatches([]);
         setBackendOnline(true);
         setProfile((p) => ({
           ...p, name: user.name, college: user.college, branch: user.branch || "",
@@ -2594,19 +2588,19 @@ export default function CampusMateApp() {
     lookingFor: "",
   });
 
-  // Best-effort: if we're logged in against a real backend, try to fetch the
-  // live feed/reels once we land on "app". If it fails for any reason
-  // (backend not running, no seed data, network hiccup) we silently keep
-  // showing the local demo dataset already in state — the UI never blocks
-  // or crashes on this.
+  // Authenticated data never falls back to local sample records.
   useEffect(() => {
     if (view !== "app" || !authUser) return;
-    cmApi.fetchFeed("For You").then((data) => {
-      if (data?.posts?.length) setBackendOnline(true);
-    }).catch(() => {});
-    cmApi.fetchReels(undefined).then((list) => {
-      if (list?.length) setBackendOnline(true);
-    }).catch(() => {});
+    setPosts([]);
+    setReels([]);
+    Promise.all([cmApi.fetchFeed("For You"), cmApi.fetchReels(), cmApi.fetchMatches()])
+      .then(([feed, reelItems, matchItems]) => {
+        setPosts((feed.posts || []).map(adaptApiPost));
+        setReels((reelItems || []).map(adaptApiReel));
+        setMatches(matchItems || []);
+        setBackendOnline(true);
+      })
+      .catch(() => { setPosts([]); setReels([]); setMatches([]); setBackendOnline(false); });
   }, [view, authUser]);
 
   const handleMatch = (student) => {
@@ -2644,7 +2638,10 @@ export default function CampusMateApp() {
       ? { ...r, liked: !r.liked, likesCount: r.likesCount + (r.liked ? -1 : 1) } : r));
     if (authUser) cmApi.likeReel(id).catch(() => {});
   };
-  const saveReel = (id) => setReels((rs) => rs.map((r) => r.id === id ? { ...r, saved: !r.saved } : r));
+  const saveReel = (id) => {
+    setReels((rs) => rs.map((r) => r.id === id ? { ...r, saved: !r.saved } : r));
+    if (authUser) cmApi.saveReel(id).catch(() => {});
+  };
   const viewReel = (id) => {
     setReels((rs) => rs.map((r) => r.id === id ? { ...r, views: r.views + 1 } : r));
     if (authUser) cmApi.registerReelView(id).catch(() => {});
@@ -2686,6 +2683,9 @@ export default function CampusMateApp() {
           t={t} dark={dark} setDark={setDark}
           onAuthed={(user) => {
             setAuthUser(user);
+            setPosts([]);
+            setReels([]);
+            setMatches([]);
             setBackendOnline(true);
             setProfile((p) => ({
               ...p, name: user.name, college: user.college, branch: user.branch || "",
@@ -2716,15 +2716,6 @@ export default function CampusMateApp() {
     );
   }
 
-  if (activeChat) {
-    return (
-      <div className="cm-root" style={{ background: t.bg }}>
-        <GlobalStyle />
-        <Chat t={t} student={activeChat} profile={profile} onBack={() => setActiveChat(null)} />
-      </div>
-    );
-  }
-
   const openStory = (story) => setActiveStory(story);
 
   return (
@@ -2734,13 +2725,13 @@ export default function CampusMateApp() {
         connectionStatus={!authUser ? "demo" : backendOnline ? "online" : "demo"}>
         {tab === "home" && (
           <Feed
-            t={t} profile={profile} matches={matches} posts={posts} following={following}
+            t={t} profile={profile} authUser={authUser} matches={matches} posts={posts} following={following}
             onToggleFollow={toggleFollow} onLike={likePost} onSave={savePost}
             onOpenComments={(p) => setCommentsPost(p)} onOpenStory={openStory}
             onBell={() => setShowNotifs((s) => !s)} setTab={setTab} onGoDiscover={() => setTab("discover")}
           />
         )}
-        {tab === "discover" && <Discover t={t} profile={profile} onMatch={handleMatch} />}
+        {tab === "discover" && <Discover t={t} profile={profile} authUser={authUser} onMatch={handleMatch} onServerMatch={handleMatch} />}
         {tab === "explore" && (
           <Explore t={t} profile={profile} posts={posts} following={following}
             onToggleFollow={toggleFollow} onLike={likePost} onSave={savePost} onOpenComments={(p) => setCommentsPost(p)}
@@ -2748,12 +2739,8 @@ export default function CampusMateApp() {
             authUser={authUser}
           />
         )}
-        {tab === "messages" && <Matches t={t} matches={matches} onOpenChat={setActiveChat} />}
-        {tab === "profile" && (
-          <Profile t={t} profile={profile} posts={posts} reels={reels} following={following}
-            onBell={() => setShowNotifs((s) => !s)} authUser={authUser}
-            onPhotoUpdated={(photo) => setAuthUser((u) => ({ ...u, profilePhoto: photo }))} />
-        )}
+        {tab === "messages" && <NativeMessages onClose={() => setTab("home")} />}
+        {tab === "profile" && <NativeProfile me={authUser} onUserChange={(user) => { setAuthUser(user); setProfile(p => ({ ...p, ...user })); }} onLogout={() => { setAuthUser(null); setView("landing"); }} />}
       </Shell>
 
       <MatchModal
@@ -2761,7 +2748,7 @@ export default function CampusMateApp() {
         student={matchModal}
         profile={profile}
         onClose={() => setMatchModal(null)}
-        onChat={() => { setActiveChat(matchModal); setMatchModal(null); }}
+        onChat={() => { setActiveChat(null); setTab("messages"); setMatchModal(null); }}
       />
 
       {activeStory && <StoryViewer t={t} story={activeStory} profile={profile} onClose={() => setActiveStory(null)} />}

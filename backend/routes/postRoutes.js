@@ -68,20 +68,20 @@ router.post(
 
     let media = [];
     if (type !== "text") {
-      media = await Promise.all(files.map((f) => saveUploadedFile(f, "post")));
+      for (const file of files) {
+        try { media.push(await saveUploadedFile(file, "post")); }
+        catch (error) { await Promise.all(media.map(item => deleteStoredFile(item).catch(() => null))); throw error; }
+      }
       media = media.map((m) => ({ url: m.url, publicId: m.publicId }));
     }
 
-    const post = await Post.create({
-      author: req.user._id,
-      college: req.user.collegeName,
-      type: type || (media.length > 1 ? "carousel" : media.length === 1 ? "photo" : "text"),
-      caption,
-      media,
-      location,
-      hashtags: String(hashtags).split(",").map((h) => h.trim()).filter(Boolean),
-      visibility: visibility || req.user.privacy?.postsDefault || "campus",
-    });
+    let post;
+    try {
+      post = await Post.create({ author: req.user._id, college: req.user.collegeName, type: type || (media.length > 1 ? "carousel" : media.length === 1 ? "photo" : "text"), caption, media, location, hashtags: String(hashtags).split(",").map((h) => h.trim()).filter(Boolean), visibility: visibility || req.user.privacy?.postsDefault || "campus" });
+    } catch (error) {
+      await Promise.all(media.map(item => deleteStoredFile(item).catch(() => null)));
+      throw error;
+    }
 
     res.status(201).json({ post });
   })

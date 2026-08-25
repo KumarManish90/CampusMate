@@ -3,7 +3,7 @@ const Reel = require("../models/Reel");
 const { Notification } = require("../models/Campus");
 const { requireAuth } = require("../middleware/auth");
 const { uploadReelVideo, uploadReelThumbnail } = require("../middleware/upload");
-const { saveUploadedFile } = require("../config/media");
+const { saveUploadedFile, deleteStoredFile, deleteStoredFiles } = require("../config/media");
 const { asyncHandler, paginate } = require("../utils/helpers");
 
 const router = express.Router();
@@ -62,17 +62,13 @@ router.post(
 
     const { caption = "", hashtags = "", audioName, duration, thumbnailUrl } = req.body;
 
-    const reel = await Reel.create({
-      author: req.user._id,
-      college: req.user.collegeName,
-      videoUrl: savedVideo.url,
-      videoPublicId: savedVideo.publicId,
-      thumbnailUrl: thumbnailUrl || savedVideo.url, // caller can also POST /reels/:id/thumbnail afterward
-      duration: Number(duration) || 10,
-      caption,
-      audioName,
-      hashtags: String(hashtags).split(",").map((h) => h.trim()).filter(Boolean),
-    });
+    let reel;
+    try {
+      reel = await Reel.create({ author: req.user._id, college: req.user.collegeName, videoUrl: savedVideo.url, videoPublicId: savedVideo.publicId, thumbnailUrl: thumbnailUrl || savedVideo.url, duration: Number(duration) || 10, caption, audioName, hashtags: String(hashtags).split(",").map((h) => h.trim()).filter(Boolean) });
+    } catch (error) {
+      await deleteStoredFile(savedVideo).catch(() => null);
+      throw error;
+    }
 
     res.status(201).json({ reel });
   })
@@ -90,9 +86,11 @@ router.post(
     if (!req.file) return res.status(400).json({ message: "No thumbnail was uploaded." });
 
     const saved = await saveUploadedFile(req.file, "thumbnail");
+    const previousThumbnail = reel.thumbnailPublicId ? { url: reel.thumbnailUrl, publicId: reel.thumbnailPublicId } : null;
     reel.thumbnailUrl = saved.url;
     reel.thumbnailPublicId = saved.publicId;
     await reel.save();
+    await deleteStoredFile(previousThumbnail).catch(() => null);
     res.json({ reel });
   })
 );
@@ -106,6 +104,10 @@ router.delete(
     if (String(reel.author) !== String(req.user._id) && !req.user.isAdmin) {
       return res.status(403).json({ message: "You can only delete your own reels." });
     }
+    await deleteStoredFiles([
+      { url: reel.videoUrl, publicId: reel.videoPublicId },
+      reel.thumbnailPublicId ? { url: reel.thumbnailUrl, publicId: reel.thumbnailPublicId } : null,
+    ]);
     await reel.deleteOne();
     res.json({ message: "Reel deleted." });
   })

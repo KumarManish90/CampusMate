@@ -34,12 +34,15 @@ const FOLDERS = {
 
 async function saveUploadedFile(file, kind) {
   if (MODE === "cloudinary") {
-    const result = await cloudinary.uploader.upload(file.path, {
-      folder: FOLDERS[kind] || "campusmate/misc",
-      resource_type: "auto",
-    });
-    fs.unlink(file.path, () => {});
-    return { url: result.secure_url, publicId: result.public_id, width: result.width, height: result.height, resourceType: result.resource_type };
+    try {
+      const result = await cloudinary.uploader.upload(file.path, {
+        folder: FOLDERS[kind] || "campusmate/misc",
+        resource_type: "auto",
+      });
+      return { url: result.secure_url, publicId: result.public_id, width: result.width, height: result.height, resourceType: result.resource_type };
+    } finally {
+      await fs.promises.unlink(file.path).catch(() => null);
+    }
   }
 
   const folderName = kind === "thumbnail" ? "thumbnails" : `${kind}s`;
@@ -59,8 +62,15 @@ async function deleteStoredFile(media) {
 
   if (!media.url || !media.url.startsWith("/uploads/")) return;
   const relativePath = media.url.replace(/^\//, "");
+  const uploadRoot = path.resolve(process.cwd(), "uploads");
   const absolutePath = path.resolve(process.cwd(), relativePath);
-  fs.unlink(absolutePath, () => {});
+  if (absolutePath !== uploadRoot && absolutePath.startsWith(`${uploadRoot}${path.sep}`)) {
+    await fs.promises.unlink(absolutePath).catch((error) => { if (error.code !== "ENOENT") throw error; });
+  }
 }
 
-module.exports = { saveUploadedFile, deleteStoredFile, MODE };
+async function deleteStoredFiles(mediaItems) {
+  await Promise.all((mediaItems || []).filter(Boolean).map(deleteStoredFile));
+}
+
+module.exports = { saveUploadedFile, deleteStoredFile, deleteStoredFiles, MODE };

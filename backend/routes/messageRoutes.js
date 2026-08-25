@@ -49,6 +49,8 @@ router.post(
     match.lastMessageAt = new Date();
     await match.save();
 
+    req.app.get("io")?.to(`match:${match._id}`).emit("chat:message", message);
+
     res.status(201).json({ message });
   })
 );

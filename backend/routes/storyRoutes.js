@@ -2,7 +2,7 @@ const express = require("express");
 const Story = require("../models/Story");
 const { requireAuth } = require("../middleware/auth");
 const { uploadStoryMedia } = require("../middleware/upload");
-const { saveUploadedFile } = require("../config/media");
+const { saveUploadedFile, deleteStoredFile } = require("../config/media");
 const { asyncHandler } = require("../utils/helpers");
 
 const router = express.Router();
@@ -13,7 +13,7 @@ const router = express.Router();
 router.get(
   "/",
   asyncHandler(async (req, res) => {
-    const stories = await Story.find({}).sort({ createdAt: -1 }).limit(300).populate("author", "name profilePhoto collegeName");
+    const stories = await Story.find({ expiresAt: { $gt: new Date() } }).sort({ createdAt: -1 }).limit(300).populate("author", "name profilePhoto collegeName");
     res.json({ stories });
   })
 );
@@ -34,16 +34,13 @@ router.post(
       mediaPublicId = saved.publicId;
     }
 
-    const story = await Story.create({
-      author: req.user._id,
-      college: req.user.collegeName,
-      type,
-      mediaUrl,
-      mediaPublicId,
-      textOverlay,
-      backgroundColor,
-      expiresAt: Story.defaultExpiry(),
-    });
+    let story;
+    try {
+      story = await Story.create({ author: req.user._id, college: req.user.collegeName, type, mediaUrl, mediaPublicId, textOverlay, backgroundColor, expiresAt: Story.defaultExpiry() });
+    } catch (error) {
+      await deleteStoredFile({ url: mediaUrl, publicId: mediaPublicId }).catch(() => null);
+      throw error;
+    }
 
     res.status(201).json({ story });
   })
@@ -71,6 +68,7 @@ router.delete(
     const story = await Story.findById(req.params.id);
     if (!story) return res.status(404).json({ message: "Story not found." });
     if (String(story.author) !== String(req.user._id)) return res.status(403).json({ message: "Not your story." });
+    await deleteStoredFile({ url: story.mediaUrl, publicId: story.mediaPublicId });
     await story.deleteOne();
     res.json({ message: "Story deleted." });
   })
