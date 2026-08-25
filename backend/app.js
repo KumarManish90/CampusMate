@@ -56,6 +56,14 @@ function createApp() {
   const app = express();
   const allowedOrigins = resolveAllowedOrigins();
 
+  // Render terminates public traffic at a single reverse-proxy hop before it
+  // reaches this service. Trust exactly that nearest hop in production so
+  // Express and express-rate-limit use the client address appended by Render.
+  // A numeric hop count deliberately ignores any attacker-supplied addresses
+  // farther left in X-Forwarded-For; never replace this with `true`, which
+  // would trust an arbitrary-length proxy chain.
+  if (process.env.NODE_ENV === "production") app.set("trust proxy", 1);
+
   app.use(helmet({ crossOriginResourcePolicy: false })); // allow /uploads media to be embedded cross-origin
   app.use(cors({
     origin: (origin, callback) => {
