@@ -13,8 +13,12 @@ test("REST chat broadcasts the canonical socket event", () => {
 test("chat socket authenticates and authorizes match membership", () => {
   const source = read("sockets/chat.js");
   assert.match(source, /jwt\.verify/);
+  assert.match(source, /User\.findById/);
+  assert.match(source, /isActive: true/);
   assert.match(source, /match\.users\.some/);
-  assert.match(source, /chat:join/);
+  for (const event of ["chat:join", "chat:typing", "chat:message", "chat:read"]) {
+    assert.match(source, new RegExp(event));
+  }
 });
 
 test("all owned media deletion routes invoke storage cleanup", () => {

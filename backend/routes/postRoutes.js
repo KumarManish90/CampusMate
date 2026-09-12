@@ -8,6 +8,7 @@ const { requireAuth, optionalAuth } = require("../middleware/auth");
 const { uploadPostMedia } = require("../middleware/upload");
 const { saveUploadedFile, deleteStoredFile } = require("../config/media");
 const { asyncHandler, paginate, scorePost } = require("../utils/helpers");
+const { visibleQuery } = require("../utils/visibility");
 
 const router = express.Router();
 
@@ -32,7 +33,7 @@ router.get(
       query.college = filter;
     }
 
-    const candidates = await Post.find(query)
+    const candidates = await Post.find(await visibleQuery(query, req.user))
       .sort({ createdAt: -1 })
       .limit(200)
       .populate("author", "name profilePhoto collegeName branch year verificationStatus interests");
@@ -50,8 +51,9 @@ router.get(
 // GET /api/posts/:id
 router.get(
   "/posts/:id",
+  optionalAuth,
   asyncHandler(async (req, res) => {
-    const post = await Post.findById(req.params.id).populate("author", "name profilePhoto collegeName branch year verificationStatus");
+    const post = await Post.findOne(await visibleQuery({ _id: req.params.id }, req.user)).populate("author", "name profilePhoto collegeName branch year verificationStatus");
     if (!post) return res.status(404).json({ message: "Post not found." });
     res.json({ post });
   })
@@ -78,6 +80,7 @@ router.post(
     let post;
     try {
       post = await Post.create({ author: req.user._id, college: req.user.collegeName, type: type || (media.length > 1 ? "carousel" : media.length === 1 ? "photo" : "text"), caption, media, location, hashtags: String(hashtags).split(",").map((h) => h.trim()).filter(Boolean), visibility: visibility || req.user.privacy?.postsDefault || "campus" });
+      await post.populate("author", "name profilePhoto collegeName branch year verificationStatus interests");
     } catch (error) {
       await Promise.all(media.map(item => deleteStoredFile(item).catch(() => null)));
       throw error;
@@ -92,7 +95,7 @@ router.delete(
   "/posts/:id",
   requireAuth,
   asyncHandler(async (req, res) => {
-    const post = await Post.findById(req.params.id);
+    const post = await Post.findOne(await visibleQuery({ _id: req.params.id }, req.user));
     if (!post) return res.status(404).json({ message: "Post not found." });
     if (String(post.author) !== String(req.user._id) && !req.user.isAdmin) {
       return res.status(403).json({ message: "You can only delete your own posts." });
@@ -113,7 +116,7 @@ router.post(
   "/posts/:id/like",
   requireAuth,
   asyncHandler(async (req, res) => {
-    const post = await Post.findById(req.params.id);
+    const post = await Post.findOne(await visibleQuery({ _id: req.params.id }, req.user));
     if (!post) return res.status(404).json({ message: "Post not found." });
 
     const already = post.likes.some((id) => String(id) === String(req.user._id));
@@ -135,7 +138,7 @@ router.post(
   "/posts/:id/save",
   requireAuth,
   asyncHandler(async (req, res) => {
-    const post = await Post.findById(req.params.id);
+    const post = await Post.findOne(await visibleQuery({ _id: req.params.id }, req.user));
     if (!post) return res.status(404).json({ message: "Post not found." });
 
     const already = post.savedBy.some((id) => String(id) === String(req.user._id));
@@ -152,7 +155,7 @@ router.post(
   "/posts/:id/share",
   requireAuth,
   asyncHandler(async (req, res) => {
-    const post = await Post.findByIdAndUpdate(req.params.id, { $inc: { sharesCount: 1 } }, { new: true });
+    const post = await Post.findOneAndUpdate(await visibleQuery({ _id: req.params.id }, req.user), { $inc: { sharesCount: 1 } }, { new: true });
     if (!post) return res.status(404).json({ message: "Post not found." });
     res.json({ sharesCount: post.sharesCount });
   })

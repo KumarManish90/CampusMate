@@ -12,6 +12,7 @@ const router = express.Router();
 // simple "find all" here already excludes anything past its 24h window.
 router.get(
   "/",
+  requireAuth,
   asyncHandler(async (req, res) => {
     const stories = await Story.find({ expiresAt: { $gt: new Date() } }).sort({ createdAt: -1 }).limit(300).populate("author", "name profilePhoto collegeName");
     res.json({ stories });
@@ -37,6 +38,7 @@ router.post(
     let story;
     try {
       story = await Story.create({ author: req.user._id, college: req.user.collegeName, type, mediaUrl, mediaPublicId, textOverlay, backgroundColor, expiresAt: Story.defaultExpiry() });
+      await story.populate("author", "name profilePhoto collegeName");
     } catch (error) {
       await deleteStoredFile({ url: mediaUrl, publicId: mediaPublicId }).catch(() => null);
       throw error;

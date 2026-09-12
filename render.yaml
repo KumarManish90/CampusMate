@@ -4,7 +4,7 @@ services:
     runtime: node
     plan: free
     rootDir: backend
-    buildCommand: npm install
+    buildCommand: npm ci --omit=dev
     startCommand: npm start
     healthCheckPath: /api/health
     envVars:
@@ -21,12 +21,18 @@ services:
       - key: JWT_EXPIRES_IN
         value: 7d
       - key: MEDIA_STORAGE_MODE
-        value: local
+        value: cloudinary
       - key: CLOUDINARY_CLOUD_NAME
         sync: false
       - key: CLOUDINARY_API_KEY
         sync: false
       - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: EMAIL_PROVIDER
+        value: resend
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
         sync: false
       - key: MAX_IMAGE_SIZE_MB
         value: 10
@@ -39,4 +45,4 @@ services:
       - key: AUTH_RATE_LIMIT_MAX
         value: 20
       - key: ENABLE_DEMO_LOGIN
-        value: "true"
+        value: "false"

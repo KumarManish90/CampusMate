@@ -1,6 +1,6 @@
 const express = require("express");
 const { Club } = require("../models/Campus");
-const { requireAuth } = require("../middleware/auth");
+const { requireAuth, requireAdmin } = require("../middleware/auth");
 const { uploadClubImage } = require("../middleware/upload");
 const { saveUploadedFile } = require("../config/media");
 const { asyncHandler } = require("../utils/helpers");
@@ -29,6 +29,7 @@ router.get(
 router.post(
   "/",
   requireAuth,
+  requireAdmin,
   uploadClubImage,
   asyncHandler(async (req, res) => {
     const { name, college, description } = req.body;

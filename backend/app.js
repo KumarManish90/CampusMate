@@ -99,6 +99,8 @@ function createApp() {
   });
   app.use("/api/auth/login", authLimiter);
   app.use("/api/auth/register", authLimiter);
+  app.use("/api/auth/send-otp", authLimiter);
+  app.use("/api/auth/verify-otp", authLimiter);
 
   // Local-mode media (no-op in production if you're on Cloudinary)
   app.use("/uploads", express.static(path.join(__dirname, "uploads")));

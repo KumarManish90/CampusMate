@@ -41,9 +41,27 @@ router.post(
     if (action !== "pass") {
       const reciprocal = await Swipe.findOne({ from: to, to: req.user._id, action: { $in: ["like", "super_like"] } });
       if (reciprocal) {
-        matched = await Match.create({ users: [req.user._id, to] });
-        await Notification.create({ user: to, actor: req.user._id, type: "match" });
-        await Notification.create({ user: req.user._id, actor: to, type: "match" });
+        const pairKey = [String(req.user._id), String(to)].sort().join(":");
+        const existing = await Match.findOne({
+          $or: [
+            { pairKey },
+            { users: { $all: [req.user._id, to], $size: 2 } },
+          ],
+        });
+        let createdNew = false;
+        try {
+          matched = existing || await Match.create({ users: [req.user._id, to], pairKey });
+          createdNew = !existing;
+        } catch (error) {
+          if (error.code !== 11000) throw error;
+          matched = await Match.findOne({ pairKey });
+        }
+        if (createdNew) {
+          await Promise.all([
+            Notification.create({ user: to, actor: req.user._id, type: "match" }),
+            Notification.create({ user: req.user._id, actor: to, type: "match" }),
+          ]);
+        }
       }
     }
 

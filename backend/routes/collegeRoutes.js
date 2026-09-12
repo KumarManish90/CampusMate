@@ -1,9 +1,24 @@
 const express = require("express");
+const rateLimit = require("express-rate-limit");
+const { z } = require("zod");
 const College = require("../models/College");
 const { requireAuth } = require("../middleware/auth");
 const { asyncHandler } = require("../utils/helpers");
 
 const router = express.Router();
+
+const collegeSchema = z.object({
+  name: z.string().trim().min(2).max(120),
+  city: z.string().trim().max(80).optional(),
+  state: z.string().trim().max(80).optional(),
+});
+const addCollegeLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: "Too many colleges added from this network. Please try again later." },
+});
 
 // GET /api/colleges?search=ggi — used by the signup/onboarding college picker.
 // Returns the top matches; an empty/short query returns the most-populous
@@ -24,15 +39,17 @@ router.get(
 // an official CampusMate partner, and is immediately usable at signup.
 router.post(
   "/",
+  addCollegeLimiter,
   asyncHandler(async (req, res) => {
-    const { name, city, state } = req.body;
-    if (!name?.trim()) return res.status(400).json({ message: "College name is required." });
+    const parsed = collegeSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
+    const { name, city, state } = parsed.data;
 
-    const existing = await College.findOne({ name: name.trim(), city: city?.trim() }).collation({ locale: "en", strength: 2 });
+    const existing = await College.findOne({ name, city }).collation({ locale: "en", strength: 2 });
     if (existing) return res.status(200).json({ college: existing, alreadyExisted: true });
 
     const college = await College.create({
-      name: name.trim(), city: city?.trim(), state: state?.trim(),
+      name, city, state,
       verificationStatus: "community_added",
     });
     res.status(201).json({ college });

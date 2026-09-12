@@ -8,8 +8,20 @@ const { requireAuth, optionalAuth } = require("../middleware/auth");
 const { uploadProfilePhoto } = require("../middleware/upload");
 const { saveUploadedFile, deleteStoredFile } = require("../config/media");
 const { asyncHandler, paginate } = require("../utils/helpers");
+const { visibleQuery } = require("../utils/visibility");
 
 const router = express.Router();
+
+// GET /api/users/me/following — current user's persisted following list.
+// This route must be registered before /:id so "me" is not treated as an ObjectId.
+router.get(
+  "/me/following",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const follows = await Follow.find({ follower: req.user._id }).select("following");
+    res.json({ userIds: follows.map((follow) => follow.following) });
+  })
+);
 
 // GET /api/users?college=GGITS&q=rahul
 router.get(
@@ -111,15 +123,17 @@ router.delete(
 // GET /api/users/:id/posts | /reels | /saved
 router.get(
   "/:id/posts",
+  optionalAuth,
   asyncHandler(async (req, res) => {
-    const posts = await Post.find({ author: req.params.id }).sort({ createdAt: -1 }).limit(60);
+    const posts = await Post.find(await visibleQuery({ author: req.params.id }, req.user)).sort({ createdAt: -1 }).limit(60);
     res.json({ posts });
   })
 );
 router.get(
   "/:id/reels",
+  optionalAuth,
   asyncHandler(async (req, res) => {
-    const reels = await Reel.find({ author: req.params.id }).sort({ createdAt: -1 }).limit(60);
+    const reels = await Reel.find(await visibleQuery({ author: req.params.id }, req.user)).sort({ createdAt: -1 }).limit(60);
     res.json({ reels });
   })
 );
@@ -129,8 +143,8 @@ router.get(
   asyncHandler(async (req, res) => {
     if (String(req.user._id) !== req.params.id) return res.status(403).json({ message: "Saved content is private." });
     const [posts, reels] = await Promise.all([
-      Post.find({ savedBy: req.user._id }).sort({ createdAt: -1 }),
-      Reel.find({ savedBy: req.user._id }).sort({ createdAt: -1 }),
+      Post.find(await visibleQuery({ savedBy: req.user._id }, req.user)).sort({ createdAt: -1 }),
+      Reel.find(await visibleQuery({ savedBy: req.user._id }, req.user)).sort({ createdAt: -1 }),
     ]);
     res.json({ posts, reels });
   })
@@ -145,14 +159,18 @@ router.post(
     const target = await User.findById(req.params.id);
     if (!target) return res.status(404).json({ message: "User not found." });
 
-    await Follow.findOneAndUpdate(
+    const result = await Follow.updateOne(
       { follower: req.user._id, following: target._id },
-      { follower: req.user._id, following: target._id },
+      { $setOnInsert: { follower: req.user._id, following: target._id } },
       { upsert: true }
     );
-    await User.updateOne({ _id: req.user._id }, { $inc: { followingCount: 1 } });
-    await User.updateOne({ _id: target._id }, { $inc: { followersCount: 1 } });
-    await Notification.create({ user: target._id, actor: req.user._id, type: "follow" });
+    if (result.upsertedCount) {
+      await Promise.all([
+        User.updateOne({ _id: req.user._id }, { $inc: { followingCount: 1 } }),
+        User.updateOne({ _id: target._id }, { $inc: { followersCount: 1 } }),
+        Notification.create({ user: target._id, actor: req.user._id, type: "follow" }),
+      ]);
+    }
 
     res.json({ isFollowing: true });
   })

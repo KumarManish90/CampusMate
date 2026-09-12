@@ -51,6 +51,8 @@ const TOKENS = {
   ggce: "#F5A524",
 };
 
+const DEMO_MODE_ENABLED = import.meta.env.DEV || import.meta.env.VITE_ENABLE_DEMO_MODE === "true";
+
 const COLLEGE_COLOR = { GGITS: TOKENS.ggits, GGCT: TOKENS.ggct, GGCE: TOKENS.ggce };
 const COLLEGE_COLOR_PALETTE = [TOKENS.primary, TOKENS.super, TOKENS.amber, TOKENS.primary2, "#34D399", "#FB7185"];
 // CampusMate now supports any college a student adds, not just the three
@@ -159,24 +161,46 @@ function registerLiveUser(apiUser) {
 const byId = (id) => STUDENTS.find((s) => s.id === id) || liveUserCache[id] || { id, name: "Unknown", college: "—", interests: [] };
 
 function adaptApiPost(p) {
-  const author = registerLiveUser(p.author);
+  const author = registerLiveUser(p.author) || {};
   return {
-    id: p._id, authorId: p.author?._id, type: p.type,
+    id: p._id, authorId: p.author?._id || p.author, type: p.type,
     caption: p.caption || "", hashtags: p.hashtags || [],
     likesCount: p.likesCount ?? (p.likes?.length || 0), commentsCount: p.commentsCount || 0, savesCount: p.savesCount || 0,
-    createdAt: timeAgo(p.createdAt), comments: [], media: p.media, college: author.college,
+    createdAt: timeAgo(p.createdAt), comments: [], media: p.media || [], images: p.media?.length || 0, college: author.college,
   };
 }
 function adaptApiReel(r) {
-  const author = registerLiveUser(r.author);
+  const author = registerLiveUser(r.author) || {};
   return {
-    id: r._id, authorId: r.author?._id, caption: r.caption || "", audioName: r.audioName || "Original Audio",
+    id: r._id, authorId: r.author?._id || r.author, caption: r.caption || "", audioName: r.audioName || "Original Audio",
     hashtags: r.hashtags || [], likesCount: r.likesCount ?? (r.likes?.length || 0), commentsCount: r.commentsCount || 0,
     views: r.viewsCount || 0, duration: r.duration, videoUrl: r.videoUrl, thumbnailUrl: r.thumbnailUrl, college: author.college,
   };
 }
 function adaptApiStudent(u) {
   return registerLiveUser(u);
+}
+function adaptApiClub(c) {
+  return {
+    id: c._id, name: c.name, college: c.college, desc: c.description || "",
+    members: c.membersCount ?? c.members?.length ?? 0, icon: Users, isDemo: false,
+  };
+}
+function adaptApiEvent(e) {
+  const date = new Date(e.date);
+  return {
+    id: e._id, title: e.title, college: e.college,
+    date: Number.isNaN(date.getTime()) ? "Date TBA" : date.toLocaleDateString("en-IN", { day: "numeric", month: "short" }),
+    time: Number.isNaN(date.getTime()) ? "Time TBA" : date.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" }),
+    participants: e.participantsCount ?? e.participants?.length ?? 0, isDemo: false,
+  };
+}
+function adaptApiComment(c) {
+  registerLiveUser(c.author);
+  return {
+    id: c._id, authorId: c.author?._id || c.author,
+    text: c.text || "", time: timeAgo(c.createdAt),
+  };
 }
 function timeAgo(dateStr) {
   if (!dateStr) return "";
@@ -235,7 +259,7 @@ const SOCIAL_NOTIFS = [
 function GlobalStyle() {
   return (
     <style>{`
-      @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap');
+      @import url('https://fonts.googleapis.com/css2?family=Caveat:wght@500;600&family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap');
       * { box-sizing: border-box; }
       .cm-root { font-family: 'Inter', sans-serif; }
       .cm-display { font-family: 'Space Grotesk', sans-serif; }
@@ -325,16 +349,17 @@ function GlassCard({ t, children, style, onClick }) {
   );
 }
 
-function PrimaryButton({ children, onClick, style, icon: Icon }) {
+function PrimaryButton({ children, onClick, style, icon: Icon, disabled = false }) {
   return (
     <button
       onClick={onClick}
+      disabled={disabled}
       style={{
         display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8,
         background: `linear-gradient(135deg, ${TOKENS.primary}, ${TOKENS.primary2})`,
         color: "#fff", border: "none", borderRadius: 14,
         padding: "13px 22px", fontSize: 14.5, fontWeight: 700,
-        cursor: "pointer", boxShadow: "0 10px 30px -10px rgba(109,93,246,0.65)",
+        cursor: disabled ? "not-allowed" : "pointer", boxShadow: "0 10px 30px -10px rgba(109,93,246,0.65)",
         transition: "transform .15s ease, box-shadow .15s ease", ...style,
       }}
       onMouseDown={(e) => (e.currentTarget.style.transform = "scale(0.97)")}
@@ -439,95 +464,56 @@ function TriCampusVisual({ t, size = 320 }) {
   );
 }
 
-function LandingPage({ t, dark, setDark, onStart }) {
+function LandingPage({ onStart }) {
+  const features = [
+    { icon: Users, title: "Meet People", copy: "Discover students in your college and connect through shared interests.", tone: "violet" },
+    { icon: Calendar, title: "Find Events", copy: "Explore upcoming activities and see what is happening around campus.", tone: "mint" },
+    { icon: BookOpen, title: "Explore Clubs", copy: "Find communities built around the things you care about.", tone: "amber" },
+    { icon: MessageCircle, title: "Campus Matching", copy: "Meet students beyond your classroom in a familiar campus space.", tone: "rose" },
+  ];
+
   return (
-    <div style={{ minHeight: "100vh", position: "relative", overflow: "hidden", background: t.bg, color: t.text }}>
-      {/* ambient blobs */}
-      <div style={{ position: "absolute", top: -120, left: -100, width: 380, height: 380, borderRadius: "50%",
-        background: `radial-gradient(circle, ${TOKENS.primary}55, transparent 70%)`, filter: "blur(10px)",
-        animation: "cmFloat 9s ease-in-out infinite" }} />
-      <div style={{ position: "absolute", bottom: -140, right: -100, width: 420, height: 420, borderRadius: "50%",
-        background: `radial-gradient(circle, ${TOKENS.amber}44, transparent 70%)`, filter: "blur(10px)",
-        animation: "cmFloatSlow 11s ease-in-out infinite" }} />
-
-      <div style={{ position: "relative", zIndex: 2, maxWidth: 1100, margin: "0 auto", padding: "22px 20px 80px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <Logo t={t} />
-          <button onClick={() => setDark(!dark)} style={{
-            width: 38, height: 38, borderRadius: 12, border: `1px solid ${t.border}`,
-            background: t.surface, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer",
-          }}>
-            {dark ? <Sun size={16} color={t.text} /> : <Moon size={16} color={t.text} />}
-          </button>
-        </div>
-
-        <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 40, marginTop: 40 }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 18, animation: "cmFadeUp .6s ease both" }}>
-            <Badge color={TOKENS.primary} style={{ width: "fit-content" }}>
-              <Sparkles size={11} /> ONE CAMPUS · THREE COLLEGES
-            </Badge>
-            <h1 className="cm-display" style={{ fontSize: "clamp(34px,7vw,58px)", lineHeight: 1.05, fontWeight: 700, margin: 0, letterSpacing: -1 }}>
-              Connect. Match.<br />
-              <span style={{ background: `linear-gradient(90deg, ${TOKENS.primary}, ${TOKENS.amber})`, WebkitBackgroundClip: "text", color: "transparent" }}>
-                Belong.
-              </span>
-            </h1>
-            <p style={{ fontSize: 16.5, color: t.textMuted, maxWidth: 480, lineHeight: 1.6 }}>
-              CampusMate brings <strong style={{ color: t.text }}>GGITS</strong>, <strong style={{ color: t.text }}>GGCT</strong> and{" "}
-              <strong style={{ color: t.text }}>GGCE</strong> onto one digital campus — meet students, build friendships,
-              find teammates, and discover what's happening across Gyan Ganga, Jabalpur.
-            </p>
-            <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 4 }}>
-              <PrimaryButton onClick={onStart} icon={ArrowRight}>Get Started</PrimaryButton>
-              <GhostButton t={t} onClick={onStart}>Explore Campus</GhostButton>
-            </div>
-            <div style={{ display: "flex", gap: 22, marginTop: 10, flexWrap: "wrap" }}>
-              {COLLEGES.map((c) => (
-                <div key={c.code} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ width: 9, height: 9, borderRadius: "50%", background: collegeColor(c.code) }} />
-                  <span style={{ fontSize: 13, color: t.textMuted, fontWeight: 600 }}>{c.code}</span>
-                </div>
-              ))}
-              <span style={{ fontSize: 11.5, color: t.textFaint }}>· demo figures shown in-app</span>
-            </div>
+    <div className="cm-cinematic">
+      <header className="cm-cine-nav">
+        <a className="cm-cine-logo" href="#top" aria-label="CampusMate home">Campus<span>mate</span></a>
+        <nav aria-label="Primary navigation">
+          <a href="#top">Home</a><a href="#features">Features</a><button onClick={onStart}>Discover</button><a href="#how">How it works</a>
+        </nav>
+        <button className="cm-cine-start" onClick={onStart}>Get Started</button>
+      </header>
+      <main>
+        <section className="cm-cine-hero" id="top">
+          <div className="cm-cine-hero-copy">
+            <p className="cm-cine-kicker">GGITS · GGCT · GGCE</p>
+            <h1>Your Campus.<br />A Little <span>Closer.</span></h1>
+            <p>Find people, stories, events, clubs and campus matches—all in one place. CampusMate helps your college feel connected.</p>
+            <div className="cm-cine-actions"><button className="cm-cine-primary" onClick={onStart}>Get Started <ArrowRight size={18} /></button><a href="#features">Explore Features</a></div>
+            <em className="cm-cine-note">Same campus.<br />More possibilities.</em>
           </div>
-
-          <div style={{ display: "flex", justifyContent: "center", animation: "cmFadeUp .8s ease .1s both" }}>
-            <GlassCard t={t} style={{ padding: 28, width: "100%", maxWidth: 420 }}>
-              <TriCampusVisual t={t} size={320} />
-              <p style={{ textAlign: "center", fontSize: 12.5, color: t.textFaint, marginTop: 4 }}>
-                The tri-campus network — students, clubs and events, all linked.
-              </p>
-            </GlassCard>
+          <em className="cm-cine-note cm-cine-note-right">More than classmates</em>
+        </section>
+        <section className="cm-cine-features" id="features" aria-labelledby="cine-features-title">
+          <div className="cm-cine-section-title"><p>THE CAMPUS EXPERIENCE</p><h2 id="cine-features-title">Everything you need.<br />All in one place.</h2></div>
+          <div className="cm-cine-feature-grid">
+            {features.map((feature) => <article key={feature.title}><span className={`cm-cine-icon ${feature.tone}`}><feature.icon size={28} /></span><h3>{feature.title}</h3><p>{feature.copy}</p></article>)}
           </div>
-        </div>
-
-        {/* value chain */}
-        <div style={{ marginTop: 70 }}>
-          <h3 className="cm-display" style={{ fontSize: 22, fontWeight: 700, marginBottom: 18 }}>Not just matching — a whole ecosystem</h3>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px,1fr))", gap: 14 }}>
-            {[
-              { icon: Heart, label: "Matches", color: TOKENS.like },
-              { icon: Users, label: "Friends", color: TOKENS.primary },
-              { icon: Briefcase, label: "Project Teams", color: TOKENS.super },
-              { icon: GraduationCap, label: "Clubs", color: TOKENS.amber },
-              { icon: Calendar, label: "Events", color: TOKENS.primary2 },
-              { icon: TrendingUp, label: "Opportunities", color: TOKENS.ggct },
-            ].map((v, i) => (
-              <GlassCard key={i} t={t} style={{ padding: "18px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
-                <div style={{ width: 34, height: 34, borderRadius: 10, background: `${v.color}22`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <v.icon size={17} color={v.color} />
-                </div>
-                <span style={{ fontSize: 13.5, fontWeight: 700, color: t.text }}>{v.label}</span>
-              </GlassCard>
-            ))}
+        </section>
+        <section className="cm-cine-how" id="how" aria-labelledby="cine-how-title">
+          <div className="cm-cine-how-copy">
+            <p className="cm-cine-kicker">SIMPLE STEPS</p><h2 id="cine-how-title">How It Works</h2><p>Start in minutes and make more of your campus experience.</p>
+            <ol><li><span>1</span><div><h3>Create Your Profile</h3><p>Tell us a bit about yourself.</p></div></li><li><span>2</span><div><h3>Explore</h3><p>Find people, stories, events and clubs.</p></div></li><li><span>3</span><div><h3>Get Connected</h3><p>Start conversations and join your community.</p></div></li></ol>
           </div>
-        </div>
-      </div>
+          <div className="cm-cine-phone" aria-label="CampusMate mobile preview">
+            <div className="cm-cine-phone-notch" /><strong>Campus<span>mate</span></strong><h3>Discover<br />your campus</h3><div className="cm-cine-phone-search"><Search size={13} /> Search campus</div>
+            <button><Calendar size={17} /><span><b>Upcoming Events</b><small>Workshops, socials and more</small></span></button><button><Users size={17} /><span><b>Clubs & Communities</b><small>Find your people</small></span></button><button><BookOpen size={17} /><span><b>Campus Stories</b><small>See what is happening</small></span></button><button onClick={onStart}><MessageCircle size={17} /><span><b>Discover Students</b><small>Connect across your college</small></span></button>
+          </div>
+        </section>
+        <section className="cm-cine-cta"><div><p className="cm-cine-kicker">A CLOSER CAMPUS AWAITS</p><h2>Ready to find<br />your people?</h2><p>Join CampusMate and make your campus experience more connected.</p><button className="cm-cine-primary" onClick={onStart}>Get Started <ArrowRight size={18} /></button></div></section>
+      </main>
+      <footer className="cm-cine-footer"><a className="cm-cine-logo" href="#top">Campus<span>mate</span></a><p>For GGITS, GGCT & GGCE</p></footer>
     </div>
   );
 }
-
 /* ============================================================
    ONBOARDING
    ============================================================ */
@@ -760,7 +746,8 @@ function HashtagPill({ tag, onClick, active, t }) {
   );
 }
 
-function TrendingHashtags({ t, onPick }) {
+function TrendingHashtags({ t, onPick, tags = HASHTAGS }) {
+  if (!tags.length) return null;
   return (
     <div style={{ marginTop: 18 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
@@ -768,7 +755,7 @@ function TrendingHashtags({ t, onPick }) {
         <h3 className="cm-display" style={{ fontSize: 15.5, fontWeight: 700, margin: 0 }}>Trending on Campus</h3>
       </div>
       <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4 }}>
-        {HASHTAGS.map((h) => <HashtagPill key={h} tag={h} t={t} onClick={() => onPick(h)} />)}
+        {tags.map((h) => <HashtagPill key={h} tag={h} t={t} onClick={() => onPick(h)} />)}
       </div>
     </div>
   );
@@ -876,6 +863,8 @@ function PostMedia({ t, post, onDoubleLike }) {
   };
   const a = byId(post.authorId);
   const grad = `linear-gradient(150deg, ${collegeColor(a.college)}77, ${TOKENS.primary2}55)`;
+  const firstMedia = post.media?.[0];
+  const mediaSrc = cmApi.resolveMediaUrl(firstMedia?.url);
   if (post.type === "text") {
     return (
       <div onClick={handleTap} style={{ position: "relative", padding: "26px 20px", borderRadius: 16, background: grad, minHeight: 110, display: "flex", alignItems: "center", cursor: "pointer" }}>
@@ -889,10 +878,10 @@ function PostMedia({ t, post, onDoubleLike }) {
       {post.type === "carousel" && (
         <span style={{ position: "absolute", top: 10, right: 10, background: "rgba(0,0,0,0.45)", color: "#fff", fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 999 }}>1 / {post.images}</span>
       )}
+      {mediaSrc ? <img src={mediaSrc} alt={post.caption || "Campus post"} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <ImageIcon size={38} color="rgba(255,255,255,0.55)" />}
       {(post.type === "club" || post.type === "event") && (
-        <Badge color={TOKENS.amber} style={{ position: "absolute", top: 10, left: 10 }}>{post.type === "club" ? post.club : post.event}</Badge>
+        <Badge color={TOKENS.amber} style={{ position: "absolute", top: 10, left: 10 }}>{post.type.toUpperCase()}</Badge>
       )}
-      <ImageIcon size={38} color="rgba(255,255,255,0.55)" />
       {post.type === "carousel" && (
         <div style={{ position: "absolute", bottom: 12, left: "50%", transform: "translateX(-50%)", display: "flex", gap: 5 }}>
           {Array.from({ length: post.images }).map((_, i) => (
@@ -915,7 +904,7 @@ function PostCard({ t, post, following, onToggleFollow, onLike, onSave, onOpenCo
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
             <span style={{ fontWeight: 700, fontSize: 14, color: t.text }}>{a.name}</span>
-            <CheckCircle2 size={13} color={TOKENS.super} />
+            {a.verificationStatus === "college_verified" && <CheckCircle2 size={13} color={TOKENS.super} aria-label="College verified" />}
           </div>
           <div style={{ fontSize: 11.5, color: t.textMuted }}>{a.college} • {a.branch} • {a.year} • {post.createdAt}</div>
         </div>
@@ -957,13 +946,32 @@ function PostCard({ t, post, following, onToggleFollow, onLike, onSave, onOpenCo
   );
 }
 
-function CommentsSheet({ t, post, profile, onClose, onAddComment }) {
+function CommentsSheet({ t, post, profile, authUser, onClose, onAddComment }) {
   const [draft, setDraft] = useState("");
+  const [comments, setComments] = useState(post?.comments || []);
+  const [loading, setLoading] = useState(!!authUser);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!authUser || !post?.id) return;
+    cmApi.fetchComments(post.id)
+      .then((items) => { setComments((items || []).map(adaptApiComment)); setError(""); })
+      .catch((err) => setError(err.response?.data?.message || "Unable to load comments."))
+      .finally(() => setLoading(false));
+  }, [authUser, post?.id]);
+
   if (!post) return null;
-  const submit = () => {
+  const submit = async () => {
     if (!draft.trim()) return;
-    onAddComment(post.id, draft.trim());
-    setDraft("");
+    const value = draft.trim();
+    setDraft(""); setError("");
+    try {
+      const comment = await onAddComment(post.id, value);
+      if (comment) setComments((items) => [...items, comment]);
+    } catch (err) {
+      setDraft(value);
+      setError(err.response?.data?.message || "Unable to add your comment.");
+    }
   };
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 90, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
@@ -974,14 +982,15 @@ function CommentsSheet({ t, post, profile, onClose, onAddComment }) {
         display: "flex", flexDirection: "column", animation: "cmSheetUp .3s cubic-bezier(.2,.9,.3,1) both",
       }}>
         <div style={{ padding: "14px 18px", borderBottom: `1px solid ${t.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span className="cm-display" style={{ fontWeight: 700, fontSize: 15, color: t.text }}>Comments · {post.commentsCount}</span>
+          <span className="cm-display" style={{ fontWeight: 700, fontSize: 15, color: t.text }}>Comments · {Math.max(post.commentsCount, comments.length)}</span>
           <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: t.textFaint }}><X size={18} /></button>
         </div>
         <div style={{ flex: 1, overflowY: "auto", padding: 18, display: "flex", flexDirection: "column", gap: 16 }}>
-          {post.comments.length === 0 && (
+          {loading && <div style={{ textAlign: "center", color: t.textFaint, fontSize: 13, padding: "30px 0" }}>Loading comments...</div>}
+          {!loading && comments.length === 0 && (
             <div style={{ textAlign: "center", color: t.textFaint, fontSize: 13, padding: "30px 0" }}>No comments yet. Start the conversation.</div>
           )}
-          {post.comments.map((c) => {
+          {!loading && comments.map((c) => {
             const a = byId(c.authorId);
             return (
               <div key={c.id} style={{ display: "flex", gap: 10 }}>
@@ -989,16 +998,13 @@ function CommentsSheet({ t, post, profile, onClose, onAddComment }) {
                 <div>
                   <div style={{ fontSize: 12.5 }}><strong style={{ color: t.text }}>{a.name}</strong> <span style={{ color: t.textFaint }}>· {a.college}</span></div>
                   <div style={{ fontSize: 13, color: t.text, marginTop: 2 }}>{c.text}</div>
-                  <div style={{ display: "flex", gap: 12, marginTop: 4 }}>
-                    <span style={{ fontSize: 11, color: t.textFaint }}>{c.time}</span>
-                    <button style={{ background: "none", border: "none", cursor: "pointer", fontSize: 11, color: t.textFaint, fontWeight: 700 }}>Like</button>
-                    <button style={{ background: "none", border: "none", cursor: "pointer", fontSize: 11, color: t.textFaint, fontWeight: 700 }}>Reply</button>
-                  </div>
+                  <div style={{ fontSize: 11, color: t.textFaint, marginTop: 4 }}>{c.time}</div>
                 </div>
               </div>
             );
           })}
         </div>
+        {error && <div style={{ color: TOKENS.like, fontSize: 12, padding: "0 14px 8px" }}>{error}</div>}
         <div style={{ padding: 14, borderTop: `1px solid ${t.border}`, display: "flex", gap: 10 }}>
           <Avatar name={profile.name || "You"} color={TOKENS.primary} size={32} />
           <input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => e.key === "Enter" && submit()}
@@ -1013,6 +1019,9 @@ function CommentsSheet({ t, post, profile, onClose, onAddComment }) {
 function CreateSheet({ t, onClose, onPublish }) {
   const [mode, setMode] = useState(null); // null | photo | text | reel | event | club
   const [caption, setCaption] = useState("");
+  const [file, setFile] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
 
   const options = [
     { key: "photo", label: "Photo Post", icon: ImageIcon, color: TOKENS.primary },
@@ -1022,10 +1031,18 @@ function CreateSheet({ t, onClose, onPublish }) {
     { key: "club", label: "Club Post", icon: Users, color: TOKENS.primary2 },
   ];
 
-  const publish = () => {
+  const publish = async () => {
     if (!caption.trim()) return;
-    onPublish({ type: mode === "reel" ? "text" : mode, caption: caption.trim() });
-    setCaption(""); setMode(null); onClose();
+    if (mode !== "text" && !file) { setError("Select a media file before publishing."); return; }
+    setBusy(true); setError("");
+    try {
+      await onPublish({ type: mode, caption: caption.trim(), file });
+      setCaption(""); setFile(null); setMode(null); onClose();
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to publish right now. Please try again.");
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -1061,17 +1078,20 @@ function CreateSheet({ t, onClose, onPublish }) {
               <h3 className="cm-display" style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>New {options.find((o) => o.key === mode)?.label}</h3>
             </div>
             {mode !== "text" && (
-              <div style={{
+              <label style={{
                 height: 150, borderRadius: 14, border: `1.5px dashed ${t.border}`, display: "flex", flexDirection: "column",
-                alignItems: "center", justifyContent: "center", gap: 6, marginBottom: 14, color: t.textFaint,
+                alignItems: "center", justifyContent: "center", gap: 6, marginBottom: 14, color: t.textFaint, cursor: "pointer",
               }}>
                 {mode === "reel" ? <Film size={22} /> : <ImageIcon size={22} />}
-                <span style={{ fontSize: 12.5 }}>{mode === "reel" ? "Upload a video (demo — no real upload)" : "Select image (demo — no real upload)"}</span>
-              </div>
+                <span style={{ fontSize: 12.5 }}>{file?.name || (mode === "reel" ? "Select a video" : "Select an image")}</span>
+                <input type="file" accept={mode === "reel" ? "video/mp4,video/webm" : "image/jpeg,image/png,image/webp"}
+                  onChange={(e) => setFile(e.target.files?.[0] || null)} style={{ display: "none" }} />
+              </label>
             )}
             <textarea value={caption} onChange={(e) => setCaption(e.target.value)} placeholder="Write a caption..." rows={3}
               style={{ width: "100%", resize: "none", borderRadius: 12, padding: 12, fontSize: 13.5, background: "transparent", color: t.text, border: `1.5px solid ${t.border}`, fontFamily: "Inter, sans-serif" }} />
-            <PrimaryButton onClick={publish} style={{ width: "100%", marginTop: 14, justifyContent: "center" }} icon={ArrowRight}>Post to CampusMate</PrimaryButton>
+            {error && <div style={{ color: TOKENS.like, fontSize: 12, marginTop: 9 }}>{error}</div>}
+            <PrimaryButton onClick={publish} disabled={busy} style={{ width: "100%", marginTop: 14, justifyContent: "center", opacity: busy ? .65 : 1 }} icon={busy ? Loader2 : ArrowRight}>{busy ? "Publishing..." : "Post to CampusMate"}</PrimaryButton>
           </>
         )}
       </div>
@@ -1079,7 +1099,37 @@ function CreateSheet({ t, onClose, onPublish }) {
   );
 }
 
-function NotificationsPanel({ t, onClose }) {
+function NotificationsPanel({ t, onClose, authUser }) {
+  const [items, setItems] = useState(authUser ? [] : SOCIAL_NOTIFS);
+  const [loading, setLoading] = useState(!!authUser);
+
+  useEffect(() => {
+    if (!authUser) return;
+    cmApi.fetchNotifications()
+      .then((notifications) => setItems(notifications || []))
+      .catch(() => setItems([]))
+      .finally(() => setLoading(false));
+  }, [authUser]);
+
+  const present = (notification) => {
+    if (!authUser) return notification;
+    const actor = notification.actor?.name || "Someone";
+    const details = {
+      like_post: [Heart, TOKENS.like, `${actor} liked your post`],
+      like_reel: [Heart, TOKENS.like, `${actor} liked your reel`],
+      comment_post: [MessageCircle, TOKENS.super, `${actor} commented on your post`],
+      comment_reel: [MessageCircle, TOKENS.super, `${actor} commented on your reel`],
+      reply_comment: [MessageCircle, TOKENS.super, `${actor} replied to your comment`],
+      follow: [UserPlus, TOKENS.primary, `${actor} started following you`],
+      connection_request: [Users, TOKENS.primary, `${actor} sent a connection request`],
+      connection_accepted: [UserCheck, TOKENS.primary, `${actor} accepted your connection request`],
+      match: [Sparkles, TOKENS.amber, `You connected with ${actor}`],
+      event_reminder: [Calendar, TOKENS.primary2, "You have an upcoming event"],
+      club_invite: [Users, TOKENS.primary2, `${actor} invited you to a club`],
+    }[notification.type] || [Bell, TOKENS.primary, "You have a new CampusMate notification"];
+    return { id: notification._id, icon: details[0], color: details[1], text: details[2], time: timeAgo(notification.createdAt) };
+  };
+
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 90 }} onClick={onClose}>
       <div onClick={(e) => e.stopPropagation()} style={{
@@ -1089,7 +1139,9 @@ function NotificationsPanel({ t, onClose }) {
       }}>
         <div style={{ padding: "14px 16px", borderBottom: `1px solid ${t.border}`, fontWeight: 700, fontSize: 14, color: t.text }}>Notifications</div>
         <div style={{ maxHeight: 340, overflowY: "auto" }}>
-          {SOCIAL_NOTIFS.map((n) => (
+          {loading && <div style={{ padding: 24, color: t.textMuted, textAlign: "center", fontSize: 12.5 }}>Loading notifications...</div>}
+          {!loading && items.length === 0 && <div style={{ padding: 24, color: t.textMuted, textAlign: "center", fontSize: 12.5 }}>No notifications yet.</div>}
+          {!loading && items.map(present).map((n) => (
             <div key={n.id} style={{ display: "flex", gap: 10, alignItems: "flex-start", padding: "11px 16px", borderBottom: `1px solid ${t.border}` }}>
               <div style={{ width: 30, height: 30, borderRadius: 9, background: `${n.color}22`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                 <n.icon size={14} color={n.color} />
@@ -1137,7 +1189,7 @@ function Shell({ t, dark, setDark, tab, setTab, children, unread, onCreate, conn
         {connectionStatus && (
           <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "0 8px 14px", fontSize: 10.5, fontWeight: 700, color: t.textFaint }}>
             <span style={{ width: 6, height: 6, borderRadius: "50%", background: connectionStatus === "online" ? TOKENS.super : TOKENS.amber }} />
-            {connectionStatus === "online" ? "CONNECTED" : "DEMO MODE — LOCAL DATA"}
+            {connectionStatus === "online" ? "CONNECTED" : "SERVICE OFFLINE"}
           </div>
         )}
         <PrimaryButton onClick={onCreate} icon={Plus} style={{ margin: "0 4px 14px", justifyContent: "center" }}>Create</PrimaryButton>
@@ -1264,13 +1316,13 @@ function AnnouncementsRow({ t }) {
   );
 }
 
-function Feed({ t, profile, authUser, matches, posts, following, onToggleFollow, onLike, onSave, onOpenComments,
+function Feed({ t, profile, authUser, matches, posts, following, students, clubs, events, onToggleFollow, onLike, onSave, onOpenComments,
                 onOpenStory, onBell, setTab, onGoDiscover, onCreateStory }) {
   const stats = [
     { icon: Heart, label: "Matches", value: matches.length, color: TOKENS.like },
-    { icon: MessageCircle, label: "Messages", value: matches.length ? matches.length + 3 : 0, color: TOKENS.super },
-    { icon: Users, label: "Connections", value: following.length, color: TOKENS.primary },
-    { icon: Calendar, label: "Events", value: 4, color: TOKENS.amber },
+    { icon: MessageCircle, label: "Chats", value: matches.length, color: TOKENS.super },
+    { icon: Users, label: "Following", value: following.length, color: TOKENS.primary },
+    { icon: Calendar, label: "Events", value: events.length, color: TOKENS.amber },
   ];
 
   return (
@@ -1309,7 +1361,7 @@ function Feed({ t, profile, authUser, matches, posts, following, onToggleFollow,
           <button onClick={() => setTab("explore")} style={{ background: "none", border: "none", color: TOKENS.primary, fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>See all</button>
         </div>
         <div style={{ display: "flex", gap: 12, overflowX: "auto", paddingBottom: 8, marginTop: 10 }}>
-          {STUDENTS.slice(0, 6).map((s) => (
+          {students.slice(0, 6).map((s) => (
             <GlassCard key={s.id} t={t} style={{ padding: 14, minWidth: 150, flexShrink: 0, textAlign: "center" }}>
               <div style={{ display: "flex", justifyContent: "center" }}><Avatar name={s.name} color={collegeColor(s.college)} size={48} /></div>
               <div style={{ fontWeight: 700, fontSize: 12.5, color: t.text, marginTop: 8 }}>{s.name}</div>
@@ -1322,6 +1374,7 @@ function Feed({ t, profile, authUser, matches, posts, following, onToggleFollow,
               }}>{following.includes(s.id) ? "Following" : "Follow"}</button>
             </GlassCard>
           ))}
+          {students.length === 0 && <p style={{ color: t.textMuted, fontSize: 12.5 }}>No student recommendations yet.</p>}
         </div>
 
         <div style={{ marginTop: 22, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -1329,7 +1382,8 @@ function Feed({ t, profile, authUser, matches, posts, following, onToggleFollow,
           <button onClick={() => setTab("explore")} style={{ background: "none", border: "none", color: TOKENS.primary, fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>See all</button>
         </div>
         <div style={{ display: "flex", gap: 12, overflowX: "auto", paddingBottom: 8, marginTop: 10 }}>
-          {EVENTS.slice(0, 4).map((e) => <EventCard key={e.id} t={t} e={e} compact />)}
+          {events.slice(0, 4).map((e) => <EventCard key={e.id} t={t} e={e} compact />)}
+          {events.length === 0 && <p style={{ color: t.textMuted, fontSize: 12.5 }}>No upcoming events yet.</p>}
         </div>
 
         <div style={{ marginTop: 22, marginBottom: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -1337,7 +1391,7 @@ function Feed({ t, profile, authUser, matches, posts, following, onToggleFollow,
           <button onClick={() => setTab("explore")} style={{ background: "none", border: "none", color: TOKENS.primary, fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>See all</button>
         </div>
         <div style={{ display: "flex", gap: 12, overflowX: "auto", paddingBottom: 20 }}>
-          {CLUBS.slice(0, 4).map((c) => (
+          {clubs.slice(0, 4).map((c) => (
             <GlassCard key={c.id} t={t} style={{ padding: 14, minWidth: 170, flexShrink: 0 }}>
               <div style={{ width: 32, height: 32, borderRadius: 9, background: `${TOKENS.primary}22`, display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <c.icon size={15} color={TOKENS.primary} />
@@ -1346,6 +1400,7 @@ function Feed({ t, profile, authUser, matches, posts, following, onToggleFollow,
               <Badge color={collegeColor(c.college)} style={{ marginTop: 6 }}>{c.college}</Badge>
             </GlassCard>
           ))}
+          {clubs.length === 0 && <p style={{ color: t.textMuted, fontSize: 12.5 }}>No campus communities yet.</p>}
         </div>
       </div>
     </div>
@@ -1433,7 +1488,7 @@ function SwipeCard({ t, student, onDecision, isTop, dragState, setDragState }) {
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
           <span style={{ color: "#fff", fontWeight: 700, fontSize: 21, fontFamily: "Space Grotesk, sans-serif" }}>{student.name}, {student.age}</span>
-          <CheckCircle2 size={16} color={TOKENS.super} />
+          {student.verificationStatus === "college_verified" && <CheckCircle2 size={16} color={TOKENS.super} aria-label="College verified" />}
         </div>
         <div style={{ color: "rgba(255,255,255,0.85)", fontSize: 13, marginBottom: 6 }}>{student.branch} • {student.year}</div>
         <Badge color={collegeColor(student.college)}>{student.college}</Badge>
@@ -1644,13 +1699,13 @@ function EventCard({ t, e, compact }) {
       <div style={{ fontSize: 12.5, color: t.textMuted, marginTop: 4, display: "flex", gap: 10, flexWrap: "wrap" }}>
         <span>📅 {e.date}</span><span>⏰ {e.time}</span>
       </div>
-      <div style={{ fontSize: 11.5, color: t.textFaint, marginTop: 4 }}>{e.participants} participants (demo)</div>
+      <div style={{ fontSize: 11.5, color: t.textFaint, marginTop: 4 }}>{e.participants} participants{e.isDemo ? " (demo)" : ""}</div>
     </GlassCard>
   );
 }
 
 function Explore({ t, profile, posts, following, onToggleFollow, onLike, onSave, onOpenComments,
-                    reels, onLikeReel, onSaveReel, onOpenReelComments, onViewReel, authUser }) {
+                    reels, clubs, events, onLikeReel, onSaveReel, onOpenReelComments, onViewReel, authUser }) {
   const [tab, setTab] = useState("students");
   const [filter, setFilter] = useState("All");
   const [query, setQuery] = useState("");
@@ -1707,9 +1762,15 @@ function Explore({ t, profile, posts, following, onToggleFollow, onLike, onSave,
     if (!authUser && q) list = list.filter((s) => s.name.toLowerCase().includes(q) || s.branch.toLowerCase().includes(q) || s.interests.some((i) => i.toLowerCase().includes(q)));
     return list;
   }, [authUser, filter, q, effectiveStudentsPool]);
-  const clubList = useMemo(() => q ? CLUBS.filter((c) => c.name.toLowerCase().includes(q)) : CLUBS, [q]);
-  const eventList = useMemo(() => q ? EVENTS.filter((e) => e.title.toLowerCase().includes(q)) : EVENTS, [q]);
-  const hashtagHits = useMemo(() => q ? HASHTAGS.filter((h) => h.toLowerCase().includes(q)) : [], [q]);
+  const availableClubs = authUser ? clubs : CLUBS;
+  const availableEvents = authUser ? events : EVENTS;
+  const availableHashtags = useMemo(
+    () => authUser ? [...new Set(effectivePosts.flatMap((post) => post.hashtags || []))].slice(0, 10) : HASHTAGS,
+    [authUser, effectivePosts]
+  );
+  const clubList = useMemo(() => q ? availableClubs.filter((c) => c.name.toLowerCase().includes(q)) : availableClubs, [q, availableClubs]);
+  const eventList = useMemo(() => q ? availableEvents.filter((e) => e.title.toLowerCase().includes(q)) : availableEvents, [q, availableEvents]);
+  const hashtagHits = useMemo(() => q ? availableHashtags.filter((h) => h.toLowerCase().includes(q)) : [], [q, availableHashtags]);
   const list = studentList;
 
   const wrappedOnLike = (id) => {
@@ -1785,7 +1846,7 @@ function Explore({ t, profile, posts, following, onToggleFollow, onLike, onSave,
                 }}>{f}</button>
               ))}
             </div>
-            <TrendingHashtags t={t} onPick={(h) => setHashtagFocus(hashtagFocus === h ? null : h)} />
+            <TrendingHashtags t={t} tags={availableHashtags} onPick={(h) => setHashtagFocus(hashtagFocus === h ? null : h)} />
             {hashtagFocus && (
               <div style={{ marginTop: 10, marginBottom: 4, fontSize: 12, color: t.textMuted }}>
                 Showing posts tagged <strong style={{ color: t.text }}>{hashtagFocus}</strong> ·{" "}
@@ -1864,7 +1925,7 @@ function Explore({ t, profile, posts, following, onToggleFollow, onLike, onSave,
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(230px,1fr))", gap: 14 }}>
               {eventList.map((e) => <EventCard key={e.id} t={t} e={e} />)}
             </div>
-            <h3 className="cm-display" style={{ fontSize: 16, fontWeight: 700, marginTop: 28, marginBottom: 12 }}>Hackathon 2026 — schedule</h3>
+            {!authUser && <><h3 className="cm-display" style={{ fontSize: 16, fontWeight: 700, marginTop: 28, marginBottom: 12 }}>Hackathon 2026 — schedule</h3>
             <GlassCard t={t} style={{ padding: 20 }}>
               {TIMELINE.map((tl, i) => (
                 <div key={i} style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
@@ -1878,7 +1939,7 @@ function Explore({ t, profile, posts, following, onToggleFollow, onLike, onSave,
                   </div>
                 </div>
               ))}
-            </GlassCard>
+            </GlassCard></>}
           </div>
         )}
       </div>
@@ -1943,7 +2004,7 @@ function ReelCard({ t, reel, active, liked, saved, onLike, onSave, onOpenComment
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
           <Avatar name={a.name} color={collegeColor(a.college)} size={34} />
           <span style={{ color: "#fff", fontWeight: 700, fontSize: 13.5 }}>{a.name}</span>
-          <CheckCircle2 size={13} color={TOKENS.super} />
+          {a.verificationStatus === "college_verified" && <CheckCircle2 size={13} color={TOKENS.super} aria-label="College verified" />}
           <Badge color={collegeColor(a.college)}>{a.college}</Badge>
         </div>
         <p style={{ color: "#fff", fontSize: 13, margin: "0 0 6px", lineHeight: 1.4 }}>{reel.caption}</p>
@@ -2249,10 +2310,10 @@ function Profile({ t, profile, posts, reels, following, onBell, authUser, onPhot
           </div>
           <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 6 }}>
             <span className="cm-display" style={{ fontWeight: 700, fontSize: 19, color: t.text }}>{profile.name || "Your Name"}</span>
-            <CheckCircle2 size={17} color={TOKENS.super} />
+            {authUser?.verificationStatus === "college_verified" && <CheckCircle2 size={17} color={TOKENS.super} aria-label="College verified" />}
           </div>
           <div style={{ fontSize: 13, color: t.textMuted, marginTop: 2 }}>{profile.branch || "Branch"} • {profile.year || "Year"}</div>
-          {profile.college && <Badge color={collegeColor(profile.college)} style={{ marginTop: 8 }}>✓ Verified {profile.college} Student</Badge>}
+          {profile.college && <Badge color={collegeColor(profile.college)} style={{ marginTop: 8 }}>{authUser?.verificationStatus === "college_verified" ? "✓ College verified · " : ""}{profile.college}</Badge>}
           {profile.bio && <p style={{ fontSize: 13.5, color: t.textMuted, marginTop: 14, lineHeight: 1.6 }}>{profile.bio}</p>}
 
           <div style={{ display: "flex", justifyContent: "center", gap: 26, marginTop: 16 }}>
@@ -2359,11 +2420,12 @@ function CollegePicker({ t, value, onChange }) {
       const college = await cmApi.addCollege(addForm);
       pick(college);
     } catch (err) {
-      // offline/demo mode — no backend to add to; fall back to a local-only selection
-      onChange({ id: null, name: addForm.name.trim(), city: addForm.city?.trim() });
-      setQuery(addForm.name.trim());
-      setOpen(false);
-      setShowAdd(false);
+      if (DEMO_MODE_ENABLED) {
+        onChange({ id: null, name: addForm.name.trim(), city: addForm.city?.trim() });
+        setQuery(addForm.name.trim());
+        setOpen(false);
+        setShowAdd(false);
+      }
     } finally {
       setBusy(false);
     }
@@ -2507,11 +2569,13 @@ function AuthScreen({ t, dark, setDark, onAuthed }) {
           {offline && (
             <div style={{ marginTop: 12, display: "flex", gap: 8, alignItems: "flex-start", fontSize: 12.5, color: t.textMuted, background: t.surface, padding: 10, borderRadius: 10 }}>
               <WifiOff size={14} style={{ marginTop: 1, flexShrink: 0 }} />
-              <span>Can't reach the CampusMate backend right now. Start it with <code>cd backend && npm run dev</code>, or continue below with local demo data.</span>
+              <span>{DEMO_MODE_ENABLED
+                ? <>Can't reach the CampusMate backend. Start it with <code>cd backend &amp;&amp; npm run dev</code> and try again.</>
+                : "CampusMate is temporarily unavailable. Please try again shortly."}</span>
             </div>
           )}
 
-          <PrimaryButton onClick={submit} style={{ width: "100%", justifyContent: "center", marginTop: 16 }} icon={loading ? Loader2 : ArrowRight}>
+          <PrimaryButton onClick={submit} disabled={loading} style={{ width: "100%", justifyContent: "center", marginTop: 16, opacity: loading ? .65 : 1 }} icon={loading ? Loader2 : ArrowRight}>
             {loading ? "Please wait..." : mode === "login" ? "Log In" : "Create Account"}
           </PrimaryButton>
         </GlassCard>
@@ -2555,7 +2619,7 @@ export default function CampusMateApp() {
         setMatches([]);
         setBackendOnline(true);
         setProfile((p) => ({
-          ...p, name: user.name, college: user.college, branch: user.branch || "",
+          ...p, name: user.name, college: user.collegeName || user.college, branch: user.branch || "",
           year: user.year || "", bio: user.bio || "", interests: user.interests || [],
           lookingFor: user.lookingFor || "",
         }));
@@ -2569,9 +2633,12 @@ export default function CampusMateApp() {
   }, []);
 
   // ---- Phase 2: social state ----
-  const [posts, setPosts] = useState(POSTS.map((p) => ({ ...p, liked: false, saved: false })));
-  const [reels, setReels] = useState(REELS.map((r) => ({ ...r, liked: false, saved: false })));
-  const [following, setFollowing] = useState([1, 5]); // demo: already following two seed accounts
+  const [posts, setPosts] = useState(DEMO_MODE_ENABLED ? POSTS.map((p) => ({ ...p, liked: false, saved: false })) : []);
+  const [reels, setReels] = useState(DEMO_MODE_ENABLED ? REELS.map((r) => ({ ...r, liked: false, saved: false })) : []);
+  const [following, setFollowing] = useState(DEMO_MODE_ENABLED ? [1, 5] : []);
+  const [homeStudents, setHomeStudents] = useState([]);
+  const [clubs, setClubs] = useState([]);
+  const [events, setEvents] = useState([]);
   const [activeStory, setActiveStory] = useState(null);
   const [showCreate, setShowCreate] = useState(false);
   const [showNotifs, setShowNotifs] = useState(false);
@@ -2593,14 +2660,26 @@ export default function CampusMateApp() {
     if (view !== "app" || !authUser) return;
     setPosts([]);
     setReels([]);
-    Promise.all([cmApi.fetchFeed("For You"), cmApi.fetchReels(), cmApi.fetchMatches()])
-      .then(([feed, reelItems, matchItems]) => {
-        setPosts((feed.posts || []).map(adaptApiPost));
-        setReels((reelItems || []).map(adaptApiReel));
-        setMatches(matchItems || []);
-        setBackendOnline(true);
-      })
-      .catch(() => { setPosts([]); setReels([]); setMatches([]); setBackendOnline(false); });
+    Promise.allSettled([
+      cmApi.fetchFeed("For You"),
+      cmApi.fetchReels(),
+      cmApi.fetchMatches(),
+      cmApi.api.get("/users", { params: { page: 1, limit: 12 } }).then((r) => r.data.users),
+      cmApi.fetchClubs(),
+      cmApi.fetchEvents(),
+      cmApi.fetchFollowing(),
+    ]).then(([feed, reelItems, matchItems, studentItems, clubItems, eventItems, followingIds]) => {
+      setPosts(feed.status === "fulfilled" ? (feed.value.posts || []).map(adaptApiPost) : []);
+      setReels(reelItems.status === "fulfilled" ? (reelItems.value || []).map(adaptApiReel) : []);
+      setMatches(matchItems.status === "fulfilled" ? (matchItems.value || []) : []);
+      setHomeStudents(studentItems.status === "fulfilled"
+        ? (studentItems.value || []).filter((user) => user._id !== authUser._id).map(adaptApiStudent)
+        : []);
+      setClubs(clubItems.status === "fulfilled" ? (clubItems.value || []).map(adaptApiClub) : []);
+      setEvents(eventItems.status === "fulfilled" ? (eventItems.value || []).map(adaptApiEvent) : []);
+      setFollowing(followingIds.status === "fulfilled" ? (followingIds.value || []).map(String) : []);
+      setBackendOnline([feed, reelItems, matchItems, studentItems, clubItems, eventItems, followingIds].some((result) => result.status === "fulfilled"));
+    });
   }, [view, authUser]);
 
   const handleMatch = (student) => {
@@ -2626,11 +2705,19 @@ export default function CampusMateApp() {
     setPosts((ps) => ps.map((p) => p.id === id ? { ...p, saved: !p.saved } : p));
     if (authUser) cmApi.savePost(id).catch(() => {});
   };
-  const addComment = (postId, text) => {
-    setPosts((ps) => ps.map((p) => p.id === postId
-      ? { ...p, commentsCount: p.commentsCount + 1, comments: [...p.comments, { id: `c${Date.now()}`, authorId: 1, text, time: "now" }] }
-      : p));
-    if (authUser) cmApi.addComment(postId, text).catch(() => {});
+  const addComment = async (postId, text) => {
+    if (authUser) {
+      const created = adaptApiComment(await cmApi.addComment(postId, text));
+      setPosts((items) => items.map((post) => post.id === postId
+        ? { ...post, commentsCount: post.commentsCount + 1, comments: [...post.comments, created] }
+        : post));
+      return created;
+    }
+    const created = { id: `c${Date.now()}`, authorId: 1, text, time: "now" };
+    setPosts((items) => items.map((post) => post.id === postId
+      ? { ...post, commentsCount: post.commentsCount + 1, comments: [...post.comments, created] }
+      : post));
+    return created;
   };
 
   const likeReel = (id) => {
@@ -2647,14 +2734,22 @@ export default function CampusMateApp() {
     if (authUser) cmApi.registerReelView(id).catch(() => {});
   };
 
-  const publishPost = ({ type, caption }) => {
-    setPosts((ps) => [{
-      id: `p${Date.now()}`, authorId: 1, type, caption, hashtags: ["#CampusLife"],
-      likesCount: 0, commentsCount: 0, savesCount: 0, createdAt: "just now", comments: [], liked: false, saved: false,
-    }, ...ps]);
-    // Real publishing requires multipart media upload (see cmApi.createPost) —
-    // left as local-only for text-post demo content in this pass since the
-    // Create sheet doesn't yet collect a real file for photo/reel modes.
+  const publishPost = async ({ type, caption, file }) => {
+    if (!authUser) throw new Error("Log in before publishing.");
+    const form = new FormData();
+    form.append("caption", caption);
+
+    if (type === "reel") {
+      form.append("video", file);
+      const created = await cmApi.createReel(form);
+      setReels((items) => [{ ...adaptApiReel(created), liked: false, saved: false }, ...items]);
+      return;
+    }
+
+    form.append("type", type);
+    if (file) form.append("media", file);
+    const created = await cmApi.createPost(form);
+    setPosts((items) => [{ ...adaptApiPost(created), liked: false, saved: false }, ...items]);
   };
 
   if (checkingSession) {
@@ -2688,7 +2783,7 @@ export default function CampusMateApp() {
             setMatches([]);
             setBackendOnline(true);
             setProfile((p) => ({
-              ...p, name: user.name, college: user.college, branch: user.branch || "",
+              ...p, name: user.name, college: user.collegeName || user.college, branch: user.branch || "",
               year: user.year || "", bio: user.bio || "", interests: user.interests || [],
               lookingFor: user.lookingFor || "",
             }));
@@ -2722,10 +2817,11 @@ export default function CampusMateApp() {
     <div className="cm-root">
       <GlobalStyle />
       <Shell t={t} dark={dark} setDark={setDark} tab={tab} setTab={setTab} unread={matches.length} onCreate={() => setShowCreate(true)}
-        connectionStatus={!authUser ? "demo" : backendOnline ? "online" : "demo"}>
+        connectionStatus={backendOnline ? "online" : "offline"}>
         {tab === "home" && (
           <Feed
             t={t} profile={profile} authUser={authUser} matches={matches} posts={posts} following={following}
+            students={authUser ? homeStudents : STUDENTS} clubs={authUser ? clubs : CLUBS} events={authUser ? events : EVENTS}
             onToggleFollow={toggleFollow} onLike={likePost} onSave={savePost}
             onOpenComments={(p) => setCommentsPost(p)} onOpenStory={openStory}
             onBell={() => setShowNotifs((s) => !s)} setTab={setTab} onGoDiscover={() => setTab("discover")}
@@ -2736,7 +2832,7 @@ export default function CampusMateApp() {
           <Explore t={t} profile={profile} posts={posts} following={following}
             onToggleFollow={toggleFollow} onLike={likePost} onSave={savePost} onOpenComments={(p) => setCommentsPost(p)}
             reels={reels} onLikeReel={likeReel} onSaveReel={saveReel} onOpenReelComments={(r) => setCommentsReel(r)} onViewReel={viewReel}
-            authUser={authUser}
+            authUser={authUser} clubs={clubs} events={events}
           />
         )}
         {tab === "messages" && <NativeMessages onClose={() => setTab("home")} />}
@@ -2753,9 +2849,9 @@ export default function CampusMateApp() {
 
       {activeStory && <StoryViewer t={t} story={activeStory} profile={profile} onClose={() => setActiveStory(null)} />}
       {showCreate && <CreateSheet t={t} onClose={() => setShowCreate(false)} onPublish={publishPost} />}
-      {showNotifs && <NotificationsPanel t={t} onClose={() => setShowNotifs(false)} />}
+      {showNotifs && <NotificationsPanel t={t} authUser={authUser} onClose={() => setShowNotifs(false)} />}
       {commentsPost && (
-        <CommentsSheet t={t} post={posts.find((p) => p.id === commentsPost.id) || commentsPost} profile={profile}
+        <CommentsSheet t={t} post={posts.find((p) => p.id === commentsPost.id) || commentsPost} profile={profile} authUser={authUser}
           onClose={() => setCommentsPost(null)} onAddComment={addComment} />
       )}
       {commentsReel && <ReelCommentsSheet t={t} reel={commentsReel} profile={profile} onClose={() => setCommentsReel(null)} />}

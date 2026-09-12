@@ -8,7 +8,7 @@ const router = express.Router();
 async function assertParty(matchId, userId) {
   const match = await Match.findById(matchId);
   if (!match) return null;
-  if (!match.users.some((u) => String(u) === String(userId))) return false;
+  if (!match.isActive || !match.users.some((u) => String(u) === String(userId))) return false;
   return match;
 }
 

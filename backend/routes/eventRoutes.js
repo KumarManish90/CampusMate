@@ -1,6 +1,6 @@
 const express = require("express");
 const { Event } = require("../models/Campus");
-const { requireAuth } = require("../middleware/auth");
+const { requireAuth, requireAdmin } = require("../middleware/auth");
 const { uploadEventImage } = require("../middleware/upload");
 const { saveUploadedFile } = require("../config/media");
 const { asyncHandler } = require("../utils/helpers");
@@ -29,6 +29,7 @@ router.get(
 router.post(
   "/",
   requireAuth,
+  requireAdmin,
   uploadEventImage,
   asyncHandler(async (req, res) => {
     const { title, college, description, date, venue, organizer } = req.body;

@@ -5,6 +5,7 @@ import axios from "axios";
 
 const API_URL = import.meta.env.VITE_API_URL || "https://campusmate-87k6.onrender.com/api";
 export const API_ORIGIN = API_URL.replace(/\/api\/?$/, "");
+export const resolveMediaUrl = (url) => url?.startsWith("/") ? `${API_ORIGIN}${url}` : url;
 export const api = axios.create({ baseURL: API_URL });
 
 api.interceptors.request.use((config) => {
@@ -83,6 +84,7 @@ export const fetchNotifications = () => api.get("/notifications").then((r) => r.
 // ---- Follow ----
 export const followUser = (id) => api.post(`/users/${id}/follow`).then((r) => r.data);
 export const unfollowUser = (id) => api.delete(`/users/${id}/follow`).then((r) => r.data);
+export const fetchFollowing = () => api.get("/users/me/following").then((r) => r.data.userIds);
 
 // ---- Profile ----
 export const updateUserProfile = (userId, payload) => api.put(`/users/${userId}`, payload).then((r) => r.data.user);
