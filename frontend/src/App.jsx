@@ -1177,7 +1177,7 @@ const SIDEBAR_ITEMS = [
   { key: "profile", label: "Profile", icon: User },
 ];
 
-function Shell({ t, dark, setDark, tab, setTab, children, unread, onCreate, connectionStatus }) {
+function Shell({ t, dark, setDark, tab, setTab, children, unread, onCreate, connectionStatus, onBrandClick }) {
   return (
     <div style={{ minHeight: "100vh", background: t.bg, color: t.text, display: "flex" }}>
       {/* desktop sidebar */}
@@ -1187,9 +1187,9 @@ function Shell({ t, dark, setDark, tab, setTab, children, unread, onCreate, conn
       }}>
         <button
           type="button"
-          onClick={() => setTab("home")}
-          aria-label="Go to Home"
-          title="Go to Home"
+          onClick={onBrandClick}
+          aria-label="Open CampusMate home page"
+          title="Open CampusMate home page"
           style={{ padding: "0 8px 10px", border: "none", background: "transparent", cursor: "pointer", textAlign: "left", width: "fit-content" }}
         >
           <Logo t={t} />
@@ -2832,7 +2832,7 @@ export default function CampusMateApp() {
     <div className="cm-root">
       <GlobalStyle />
       <Shell t={t} dark={dark} setDark={setDark} tab={tab} setTab={setTab} unread={matches.length} onCreate={() => setShowCreate(true)}
-        connectionStatus={backendOnline ? "online" : "offline"}>
+        connectionStatus={backendOnline ? "online" : "offline"} onBrandClick={() => setView("landing")}>
         {tab === "home" && (
           <Feed
             t={t} profile={profile} authUser={authUser} matches={matches} posts={posts} following={following}
