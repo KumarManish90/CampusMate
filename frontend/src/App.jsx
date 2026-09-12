@@ -464,7 +464,7 @@ function TriCampusVisual({ t, size = 320 }) {
   );
 }
 
-function LandingPage({ onStart }) {
+function LandingPage({ onStart, authUser, onProfile }) {
   const features = [
     { icon: Users, title: "Meet People", copy: "Discover students in your college and connect through shared interests.", tone: "violet" },
     { icon: Calendar, title: "Find Events", copy: "Explore upcoming activities and see what is happening around campus.", tone: "mint" },
@@ -479,7 +479,7 @@ function LandingPage({ onStart }) {
         <nav aria-label="Primary navigation">
           <a href="#top">Home</a><a href="#features">Features</a><button onClick={onStart}>Discover</button><a href="#how">How it works</a>
         </nav>
-        <button className="cm-cine-start" onClick={onStart}>Get Started</button>
+        <button className="cm-cine-start" onClick={authUser ? onProfile : onStart}>{authUser ? "Profile" : "Get Started"}</button>
       </header>
       <main>
         <section className="cm-cine-hero" id="top">
@@ -1185,7 +1185,15 @@ function Shell({ t, dark, setDark, tab, setTab, children, unread, onCreate, conn
         width: 220, borderRight: `1px solid ${t.border}`, padding: "22px 14px",
         display: "flex", flexDirection: "column", gap: 4, flexShrink: 0,
       }}>
-        <div style={{ padding: "0 8px 10px" }}><Logo t={t} /></div>
+        <button
+          type="button"
+          onClick={() => setTab("home")}
+          aria-label="Go to Home"
+          title="Go to Home"
+          style={{ padding: "0 8px 10px", border: "none", background: "transparent", cursor: "pointer", textAlign: "left", width: "fit-content" }}
+        >
+          <Logo t={t} />
+        </button>
         {connectionStatus && (
           <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "0 8px 14px", fontSize: 10.5, fontWeight: 700, color: t.textFaint }}>
             <span style={{ width: 6, height: 6, borderRadius: "50%", background: connectionStatus === "online" ? TOKENS.super : TOKENS.amber }} />
@@ -2765,7 +2773,14 @@ export default function CampusMateApp() {
     return (
       <div className="cm-root">
         <GlobalStyle />
-        <LandingPage t={t} dark={dark} setDark={setDark} onStart={() => setView(authUser ? "onboarding" : "auth")} />
+        <LandingPage
+          t={t}
+          dark={dark}
+          setDark={setDark}
+          authUser={authUser}
+          onStart={() => setView(authUser ? "app" : "auth")}
+          onProfile={() => { setTab("profile"); setView("app"); }}
+        />
       </div>
     );
   }
