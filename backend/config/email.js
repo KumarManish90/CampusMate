@@ -1,13 +1,16 @@
 const PROVIDER = (process.env.EMAIL_PROVIDER || "console").toLowerCase();
 
 function assertEmailConfig() {
-  if (process.env.NODE_ENV !== "production") return;
+  if (process.env.NODE_ENV !== "production") return true;
   if (PROVIDER !== "resend") {
-    throw new Error("EMAIL_PROVIDER must be 'resend' in production.");
+    console.warn("[startup] Production email delivery is disabled. Set EMAIL_PROVIDER=resend before enabling email verification.");
+    return false;
   }
   if (!process.env.RESEND_API_KEY || !process.env.EMAIL_FROM) {
-    throw new Error("RESEND_API_KEY and EMAIL_FROM are required in production.");
+    console.warn("[startup] Resend is selected but RESEND_API_KEY or EMAIL_FROM is missing; email verification will be unavailable.");
+    return false;
   }
+  return true;
 }
 
 async function sendEmailOtp(email, otp) {
