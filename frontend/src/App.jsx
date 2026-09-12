@@ -1171,7 +1171,6 @@ const NAV_ITEMS = [
 
 const SIDEBAR_ITEMS = [
   { key: "home", label: "Home", icon: Home },
-  { key: "discover", label: "Discover", icon: Compass },
   { key: "explore", label: "Explore", icon: Users },
   { key: "messages", label: "Messages", icon: MessageCircle },
   { key: "profile", label: "Profile", icon: User },
@@ -1310,7 +1309,6 @@ const FEED_FILTERS = ["For You", "Following", "GGITS", "GGCT", "GGCE"];
 function AnnouncementsRow({ t }) {
   const announcements = [
     { icon: GraduationCap, text: "CampusMate now works for any college — search for yours or add it during signup.", color: TOKENS.primary },
-    { icon: Users, text: "Networking, study partners, and hackathon teammates — dating is just one of many reasons to connect.", color: TOKENS.amber },
   ];
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8, margin: "16px 0" }}>
@@ -1330,7 +1328,6 @@ function Feed({ t, profile, authUser, matches, posts, following, students, clubs
     { icon: Heart, label: "Matches", value: matches.length, color: TOKENS.like },
     { icon: MessageCircle, label: "Chats", value: matches.length, color: TOKENS.super },
     { icon: Users, label: "Following", value: following.length, color: TOKENS.primary },
-    { icon: Calendar, label: "Events", value: events.length, color: TOKENS.amber },
   ];
 
   return (
@@ -1341,7 +1338,7 @@ function Feed({ t, profile, authUser, matches, posts, following, students, clubs
 
         <AnnouncementsRow t={t} />
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px,1fr))", gap: 10, margin: "20px 0" }}>
+        <div className="cm-home-stats">
           {stats.map((s, i) => (
             <GlassCard key={i} t={t} style={{ padding: 14, animation: `cmFadeUp .4s ease ${i * 0.06}s both` }}>
               <div style={{ width: 26, height: 26, borderRadius: 8, background: `${s.color}22`, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 8 }}>

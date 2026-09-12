@@ -22,8 +22,10 @@ export function NativeStories({ me }) {
   const mineIndex = flat.findIndex(s => String(s.author?._id || s.author) === String(me?._id));
   return <>
     <div className="cm-story-strip" aria-label="Stories">
-      <button className="cm-story-button" onClick={() => setCreating(true)}><Avatar user={me} size={52}/><span>+ Story</span></button>
-      {mineIndex >= 0 && <button className="cm-story-button" onClick={() => setIndex(mineIndex)}><Avatar user={me} size={52}/><span>Your story</span></button>}
+      <button className="cm-story-button" onClick={() => mineIndex >= 0 ? setIndex(mineIndex) : setCreating(true)}>
+        <span className={`cm-own-story-avatar ${mineIndex >= 0 ? "has-story" : ""}`}><Avatar user={me} size={52}/>{mineIndex < 0 && <i aria-hidden="true">+</i>}</span>
+        <span>{mineIndex >= 0 ? "Your story" : "Add story"}</span>
+      </button>
       {groups.filter(g => String(g.author?._id || g.author) !== String(me?._id)).map(g => <button key={g.author?._id || g.author} className="cm-story-button" onClick={() => setIndex(flat.indexOf(g.items[0]))}><Avatar user={g.author} size={52}/><span>{g.author?.name?.split(" ")[0] || "Story"}</span></button>)}
     </div>
     {error && <div className="cm-inline-error">{error} <button onClick={refresh}>Retry</button></div>}
