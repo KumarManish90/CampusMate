@@ -1583,7 +1583,7 @@ function Discover({ t, profile, onMatch, onServerMatch, authUser }) {
     }, 260);
   };
 
-  const reviewPassedProfiles = async () => {
+  const showProfilesAgain = async () => {
     if (!authUser || busy) {
       setIndex(0);
       return;
@@ -1592,13 +1592,13 @@ function Discover({ t, profile, onMatch, onServerMatch, authUser }) {
     setError("");
     setNotice("");
     try {
-      const result = await cmApi.resetPassedSwipes();
+      const result = await cmApi.resetReviewableSwipes();
       const list = await cmApi.fetchDiscoverCandidates(filter === "All" ? undefined : filter);
       setLiveCandidates((list || []).map(adaptApiStudent));
       setIndex(0);
-      setNotice(result.resetCount ? "Passed profiles are available again." : "No passed profiles to review yet.");
+      setNotice(result.resetCount ? "Profiles are available again. Your existing matches were kept." : "No profiles can be reset yet.");
     } catch (requestError) {
-      setError(requestError.response?.data?.message || "Could not reset passed profiles. Please retry.");
+      setError(requestError.response?.data?.message || "Could not reload profiles. Please retry.");
     } finally {
       setBusy(false);
     }
@@ -1631,8 +1631,8 @@ function Discover({ t, profile, onMatch, onServerMatch, authUser }) {
             <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", gap: 8, animation: "cmFadeUp .4s ease both" }}>
               <span style={{ fontSize: 40 }}>❤️</span>
               <div style={{ fontWeight: 700, fontSize: 16, color: t.text }}>No new profiles right now.</div>
-              <div style={{ fontSize: 13, color: t.textMuted }}>You can review students you previously passed.</div>
-              <GhostButton t={t} disabled={busy} onClick={reviewPassedProfiles} style={{ marginTop: 8 }}>{busy ? "Loading…" : "Review passed profiles"}</GhostButton>
+              <div style={{ fontSize: 13, color: t.textMuted }}>You have already reviewed every available student.</div>
+              <GhostButton t={t} disabled={busy} onClick={showProfilesAgain} style={{ marginTop: 8 }}>{busy ? "Loading…" : "Show profiles again"}</GhostButton>
             </div>
           )}
           {next && <SwipeCard t={t} student={next} isTop={false} dragState={{ x: 0, y: 0 }} setDragState={() => {}} onDecision={() => {}} />}
