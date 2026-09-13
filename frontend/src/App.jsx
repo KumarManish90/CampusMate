@@ -1298,6 +1298,16 @@ function Shell({ t, dark, setDark, tab, setTab, children, unread, onCreate, conn
       </div>
 
       <div className="cm-app-content" style={{ flex: 1, minWidth: 0, paddingBottom: 76 }}>
+        <header className="cm-mobile-toolbar" style={{ background: t.bg2 }}>
+          <button type="button" onClick={onBrandClick} aria-label="Back to cinematic page">
+            <Logo t={t} size={22} />
+            <span>Cinematic</span>
+          </button>
+          <button type="button" onClick={() => setDark(!dark)} aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}>
+            {dark ? <Sun size={18} /> : <Moon size={18} />}
+            <span>{dark ? "Light" : "Dark"}</span>
+          </button>
+        </header>
         {children}
       </div>
 

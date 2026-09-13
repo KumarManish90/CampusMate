@@ -59,3 +59,15 @@ test("native API collections use safe array defaults", () => {
   assert.match(native, /Array\.isArray\(data\) \? data : \[\]/);
   assert.match(native, /Array\.isArray\(userIds\) \? userIds : \[\]/);
 });
+test("mobile app exposes cinematic back, theme control and touch feedback", () => {
+  assert.match(app, /className="cm-mobile-toolbar"/);
+  assert.match(app, /aria-label="Back to cinematic page"/);
+  assert.match(app, /Switch to light mode/);
+  assert.match(css, /\.cm-app-content button:active/);
+});
+test("profile is centered, responsive and isolates partial API failures", () => {
+  assert.match(native, /Promise\.allSettled/);
+  assert.match(native, /className="cm-profile-card"/);
+  assert.match(css, /\.cm-profile-card\{width:min\(100%,620px\)/);
+  assert.match(css, /\.cm-profile-summary\{flex-direction:column/);
+});
