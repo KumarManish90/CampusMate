@@ -91,6 +91,22 @@ router.delete(
   })
 );
 
+// DELETE /api/swipes/reviewable — reset choices without touching mutual matches.
+router.delete(
+  "/swipes/reviewable",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const activeMatches = await Match.find({ users: req.user._id, isActive: true }).select("users");
+    const matchedUserIds = activeMatches.flatMap((match) =>
+      match.users.filter((userId) => String(userId) !== String(req.user._id))
+    );
+    const filter = { from: req.user._id };
+    if (matchedUserIds.length > 0) filter.to = { $nin: matchedUserIds };
+    const result = await Swipe.deleteMany(filter);
+    res.json({ resetCount: result.deletedCount || 0 });
+  })
+);
+
 // GET /api/matches
 router.get(
   "/matches",
