@@ -178,7 +178,16 @@ function adaptApiReel(r) {
   };
 }
 function adaptApiStudent(u) {
-  return registerLiveUser(u);
+  const student = registerLiveUser(u) || {};
+  return {
+    ...student,
+    name: student.name || "CampusMate student",
+    college: student.college || "Campus",
+    branch: student.branch || "",
+    year: student.year || "",
+    bio: student.bio || "",
+    interests: Array.isArray(student.interests) ? student.interests : [],
+  };
 }
 function adaptApiClub(c) {
   return {
@@ -1501,7 +1510,7 @@ function SwipeCard({ t, student, onDecision, isTop, dragState, setDragState }) {
         <Badge color={collegeColor(student.college)}>{student.college}</Badge>
         <p style={{ color: "rgba(255,255,255,0.9)", fontSize: 13, marginTop: 10, lineHeight: 1.5 }}>{student.bio}</p>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
-          {student.interests.map((i) => (
+          {(student.interests || []).map((i) => (
             <span key={i} style={{ fontSize: 11, fontWeight: 600, color: "#fff", background: "rgba(255,255,255,0.18)", padding: "3px 9px", borderRadius: 999, backdropFilter: "blur(6px)" }}>{i}</span>
           ))}
         </div>
@@ -1558,10 +1567,10 @@ function Discover({ t, profile, onMatch, onServerMatch, authUser }) {
     setBusy(true);
     setError("");
     setNotice("");
-    setDragState({ x: type === "pass" ? -600 : type === "like" ? 600 : 0, y: type === "super" ? -700 : dragState.y });
+    setDragState({ x: type === "pass" ? -600 : type === "like" ? 600 : 0, y: type === "connect" ? -700 : dragState.y });
 
     if (authUser && liveCandidates) {
-      const apiAction = type === "super" ? "super_like" : type === "like" ? "like" : "pass";
+      const apiAction = type === "connect" ? "connect" : type === "like" ? "like" : "pass";
       try {
         const result = await cmApi.swipe(current.id, apiAction);
         if (result?.matched) onServerMatch(current, result.match);
@@ -1654,7 +1663,7 @@ function Discover({ t, profile, onMatch, onServerMatch, authUser }) {
 
             <div className="cm-match-actions" style={{ display: "flex", justifyContent: "center", gap: 18, marginTop: 20, "--cm-action-bg": t.bg2, "--cm-action-border": t.border }}>
               <RoundBtn label="Pass" disabled={busy} color={TOKENS.like} icon={X} onClick={() => decide("pass")} />
-              <RoundBtn label="Super Like" disabled={busy} color={TOKENS.amber} icon={Star} onClick={() => decide("super")} size={46} />
+              <RoundBtn label="Connect" disabled={busy} color={TOKENS.amber} icon={UserPlus} onClick={() => decide("connect")} size={46} />
               <RoundBtn label="Like" disabled={busy} color={TOKENS.super} icon={Heart} onClick={() => decide("like")} />
             </div>
           </>
@@ -1751,7 +1760,7 @@ function Avatar({ name, color, size = 68, photoUrl }) {
    EXPLORE — students / clubs / events
    ============================================================ */
 
-function EventCard({ t, e, compact }) {
+function EventCard({ t, e, compact, onRegister }) {
   return (
     <GlassCard t={t} style={{ padding: 16, minWidth: compact ? 220 : "auto", flexShrink: 0 }}>
       <Badge color={collegeColor(e.college)}>{e.college}</Badge>
@@ -1760,12 +1769,36 @@ function EventCard({ t, e, compact }) {
         <span>📅 {e.date}</span><span>⏰ {e.time}</span>
       </div>
       <div style={{ fontSize: 11.5, color: t.textFaint, marginTop: 4 }}>{e.participants} participants{e.isDemo ? " (demo)" : ""}</div>
+      {onRegister && <button onClick={() => onRegister(e)} style={{ marginTop: 10, padding: 0, border: 0, background: "transparent", color: TOKENS.primary, fontWeight: 700, cursor: "pointer" }}>Register →</button>}
     </GlassCard>
   );
 }
 
+function CampusContributionSheet({ t, type, onClose, onCreated }) {
+  const isEvent = type === "event";
+  const [form, setForm] = useState({ title: "", description: "", date: "", venue: "" });
+  const [file, setFile] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const update = (key, value) => setForm(current => ({ ...current, [key]: value }));
+  const submit = async event => {
+    event.preventDefault(); setBusy(true); setError("");
+    const payload = new FormData();
+    payload.append(isEvent ? "title" : "name", form.title.trim());
+    payload.append("description", form.description.trim());
+    if (isEvent) { payload.append("date", form.date); payload.append("venue", form.venue.trim()); }
+    if (file) payload.append("image", file);
+    try {
+      onCreated(isEvent ? await cmApi.createEvent(payload) : await cmApi.createClub(payload));
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || `Could not create ${isEvent ? "event" : "community"}.`);
+    } finally { setBusy(false); }
+  };
+  return <div className="cm-native-modal"><form className="cm-media-composer" onSubmit={submit}><header><strong>{isEvent ? "Add upcoming event" : "Create campus community"}</strong><button type="button" onClick={onClose}><X/></button></header><input required minLength={3} maxLength={isEvent ? 100 : 80} style={inputStyle(t)} value={form.title} onChange={event => update("title", event.target.value)} placeholder={isEvent ? "Event title" : "Community name"}/><textarea maxLength={isEvent ? 1000 : 500} style={inputStyle(t)} value={form.description} onChange={event => update("description", event.target.value)} placeholder="Description"/>{isEvent && <><input required type="datetime-local" min={new Date(Date.now() + 60000).toISOString().slice(0, 16)} style={inputStyle(t)} value={form.date} onChange={event => update("date", event.target.value)}/><input maxLength={120} style={inputStyle(t)} value={form.venue} onChange={event => update("venue", event.target.value)} placeholder="Venue"/></>}<label style={{ fontSize: 12, color: t.textMuted }}>Optional cover image<input type="file" accept="image/jpeg,image/png,image/webp" onChange={event => setFile(event.target.files?.[0] || null)} style={{ ...inputStyle(t), marginTop: 6 }}/></label>{error && <div className="cm-inline-error" role="alert">{error}</div>}<PrimaryButton disabled={busy} style={{ justifyContent: "center" }}>{busy ? "Publishing…" : isEvent ? "Publish event" : "Create community"}</PrimaryButton></form></div>;
+}
+
 function Explore({ t, profile, posts, following, onToggleFollow, onLike, onSave, onOpenComments,
-                    reels, clubs, events, onLikeReel, onSaveReel, onOpenReelComments, onViewReel, authUser }) {
+                    reels, clubs, events, onLikeReel, onSaveReel, onOpenReelComments, onViewReel, authUser, onClubCreated, onEventCreated }) {
   const [tab, setTab] = useState("students");
   const [filter, setFilter] = useState("All");
   const [query, setQuery] = useState("");
@@ -1779,6 +1812,8 @@ function Explore({ t, profile, posts, following, onToggleFollow, onLike, onSave,
   const [liveReels, setLiveReels] = useState(null);
   const [liveStudents, setLiveStudents] = useState(null);
   const [loadingLive, setLoadingLive] = useState(false);
+  const [contributionType, setContributionType] = useState(null);
+  const [contributionNotice, setContributionNotice] = useState("");
 
   useEffect(() => {
     if (!authUser) return;
@@ -1957,6 +1992,9 @@ function Explore({ t, profile, posts, following, onToggleFollow, onLike, onSave,
         )}
 
         {tab === "clubs" && (
+          <div>
+          {authUser && <div className="cm-campus-contribute"><div><strong>Campus communities</strong><span>Start a group for students at {authUser.collegeName}.</span></div><PrimaryButton icon={Plus} onClick={() => setContributionType("club")}>Create community</PrimaryButton></div>}
+          {contributionNotice && <div className="cm-match-notice" role="status">{contributionNotice}</div>}
           <div className="cm-explore-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(230px,1fr))", gap: 14 }}>
             {clubList.map((c) => (
               <GlassCard key={c.id} t={t} style={{ padding: 18, transition: "transform .15s ease" }}
@@ -1973,17 +2011,20 @@ function Explore({ t, profile, posts, following, onToggleFollow, onLike, onSave,
                 <p style={{ fontSize: 12.5, color: t.textMuted, marginTop: 10, lineHeight: 1.5 }}>{c.desc}</p>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 12 }}>
                   <span style={{ fontSize: 11.5, color: t.textFaint }}>{c.members} members</span>
-                  <button style={{ fontSize: 12, fontWeight: 700, color: TOKENS.primary, background: "none", border: "none", cursor: "pointer" }}>Join →</button>
+                  <button onClick={() => authUser && cmApi.joinClub(c.id).then(() => setContributionNotice(`You joined ${c.name}.`)).catch(() => setContributionNotice("Could not join this community."))} style={{ fontSize: 12, fontWeight: 700, color: TOKENS.primary, background: "none", border: "none", cursor: "pointer" }}>Join →</button>
                 </div>
               </GlassCard>
             ))}
+          </div>
           </div>
         )}
 
         {tab === "events" && (
           <div>
+            {authUser && <div className="cm-campus-contribute"><div><strong>Upcoming events</strong><span>Share a real campus event with other students.</span></div><PrimaryButton icon={Plus} onClick={() => setContributionType("event")}>Add event</PrimaryButton></div>}
+            {contributionNotice && <div className="cm-match-notice" role="status">{contributionNotice}</div>}
             <div className="cm-explore-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(230px,1fr))", gap: 14 }}>
-              {eventList.map((e) => <EventCard key={e.id} t={t} e={e} />)}
+              {eventList.map((e) => <EventCard key={e.id} t={t} e={e} onRegister={authUser ? event => cmApi.registerForEvent(event.id).then(() => setContributionNotice(`Registered for ${event.title}.`)).catch(() => setContributionNotice("Could not register for this event.")) : undefined} />)}
             </div>
             {!authUser && <><h3 className="cm-display" style={{ fontSize: 16, fontWeight: 700, marginTop: 28, marginBottom: 12 }}>Hackathon 2026 — schedule</h3>
             <GlassCard t={t} style={{ padding: 20 }}>
@@ -2001,6 +2042,19 @@ function Explore({ t, profile, posts, following, onToggleFollow, onLike, onSave,
               ))}
             </GlassCard></>}
           </div>
+        )}
+        {contributionType && (
+          <CampusContributionSheet
+            t={t}
+            type={contributionType}
+            onClose={() => setContributionType(null)}
+            onCreated={created => {
+              if (contributionType === "event") onEventCreated(adaptApiEvent(created));
+              else onClubCreated(adaptApiClub(created));
+              setContributionNotice(`${contributionType === "event" ? "Event" : "Community"} published successfully.`);
+              setContributionType(null);
+            }}
+          />
         )}
       </div>
     </div>
@@ -2575,7 +2629,7 @@ function AuthScreen({ t, dark, setDark, onAuthed }) {
             collegeId: college.id || undefined, collegeName: college.id ? undefined : college.name, collegeCity: college.city,
           });
       localStorage.setItem("cm_token", data.token);
-      onAuthed(data.user);
+      onAuthed(data.user, { isNewAccount: mode === "register" });
     } catch (err) {
       if (!err.response) {
         // network/backend unreachable — this is expected if the backend isn't running
@@ -2849,7 +2903,7 @@ export default function CampusMateApp() {
         <GlobalStyle />
         <AuthScreen
           t={t} dark={dark} setDark={setDark}
-          onAuthed={(user) => {
+          onAuthed={(user, { isNewAccount } = {}) => {
             setAuthUser(user);
             setPosts([]);
             setReels([]);
@@ -2860,7 +2914,7 @@ export default function CampusMateApp() {
               year: user.year || "", bio: user.bio || "", interests: user.interests || [],
               lookingFor: user.lookingFor || "",
             }));
-            setView("onboarding");
+            setView(isNewAccount ? "onboarding" : "app");
           }}
         />
       </div>
@@ -2906,10 +2960,12 @@ export default function CampusMateApp() {
             onToggleFollow={toggleFollow} onLike={likePost} onSave={savePost} onOpenComments={(p) => setCommentsPost(p)}
             reels={reels} onLikeReel={likeReel} onSaveReel={saveReel} onOpenReelComments={(r) => setCommentsReel(r)} onViewReel={viewReel}
             authUser={authUser} clubs={clubs} events={events}
+            onClubCreated={(club) => setClubs(items => [club, ...items])}
+            onEventCreated={(event) => setEvents(items => [event, ...items])}
           />
         )}
         {tab === "messages" && <NativeMessages onClose={() => setTab("home")} />}
-        {tab === "profile" && <NativeProfile me={authUser} onUserChange={(user) => { setAuthUser(user); setProfile(p => ({ ...p, ...user })); }} onLogout={() => { setAuthUser(null); setView("landing"); }} />}
+        {tab === "profile" && <NativeProfile me={authUser} onUserChange={(user) => { setAuthUser(user); setProfile(p => ({ ...p, name: user.name || p.name, college: user.collegeName || p.college, branch: user.branch || "", year: user.year || "", bio: user.bio || "", interests: user.interests || [], lookingFor: user.lookingFor || "" })); }} onLogout={() => { setAuthUser(null); setView("landing"); }} />}
       </Shell>
 
       <MatchModal

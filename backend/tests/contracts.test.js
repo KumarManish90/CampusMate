@@ -27,3 +27,25 @@ test("all owned media deletion routes invoke storage cleanup", () => {
   assert.match(read("routes/storyRoutes.js"), /deleteStoredFile/);
   assert.match(read("routes/userRoutes.js"), /deleteStoredFile/);
 });
+
+test("chat persists photo, GIF and video attachments", () => {
+  const route = read("routes/messageRoutes.js");
+  const model = read("models/Social.js");
+  assert.match(route, /uploadMessageMedia/);
+  assert.match(route, /saveUploadedFile\(req\.file, "message"\)/);
+  assert.match(model, /\["text", "image", "video", "gif"\]/);
+});
+
+test("match actions support a clear connect intent", () => {
+  assert.match(read("routes/matchRoutes.js"), /"connect"/);
+  assert.match(read("models\/Social.js"), /"connect"/);
+});
+
+test("authenticated students can submit clubs and events", () => {
+  for (const file of ["routes/clubRoutes.js", "routes/eventRoutes.js"]) {
+    const source = read(file);
+    assert.match(source, /requireAuth/);
+    assert.match(source, /createdBy: req\.user\._id/);
+    assert.doesNotMatch(source, /requireAdmin/);
+  }
+});

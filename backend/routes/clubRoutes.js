@@ -1,6 +1,6 @@
 const express = require("express");
 const { Club } = require("../models/Campus");
-const { requireAuth, requireAdmin } = require("../middleware/auth");
+const { requireAuth } = require("../middleware/auth");
 const { uploadClubImage } = require("../middleware/upload");
 const { saveUploadedFile } = require("../config/media");
 const { asyncHandler } = require("../utils/helpers");
@@ -29,18 +29,29 @@ router.get(
 router.post(
   "/",
   requireAuth,
-  requireAdmin,
   uploadClubImage,
   asyncHandler(async (req, res) => {
-    const { name, college, description } = req.body;
-    if (!name || !college) return res.status(400).json({ message: "name and college are required." });
+    const { name, description } = req.body;
+    const cleanName = String(name || "").trim();
+    const cleanDescription = String(description || "").trim();
+    if (cleanName.length < 3 || cleanName.length > 80) return res.status(400).json({ message: "Community name must be 3–80 characters." });
+    if (cleanDescription.length > 500) return res.status(400).json({ message: "Description must be 500 characters or less." });
 
     let logo;
     if (req.file) {
       const saved = await saveUploadedFile(req.file, "club");
       logo = { url: saved.url, publicId: saved.publicId };
     }
-    const club = await Club.create({ name, college, description, logo, admins: [req.user._id], members: [req.user._id] });
+    const club = await Club.create({
+      name: cleanName,
+      college: req.user.collegeName,
+      description: cleanDescription,
+      logo,
+      createdBy: req.user._id,
+      submissionSource: req.user.isAdmin ? "admin" : "student",
+      admins: [req.user._id],
+      members: [req.user._id],
+    });
     res.status(201).json({ club });
   })
 );

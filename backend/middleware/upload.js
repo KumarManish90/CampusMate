@@ -4,6 +4,7 @@ const fs = require("fs");
 const crypto = require("crypto");
 
 const IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+const MESSAGE_IMAGE_TYPES = [...IMAGE_TYPES, "image/gif"];
 const VIDEO_TYPES = ["video/mp4", "video/webm"];
 
 const MAX_IMAGE_MB = Number(process.env.MAX_IMAGE_SIZE_MB || 10);
@@ -15,7 +16,7 @@ function destinationFor(kind) {
   return dir;
 }
 
-function makeUploader(kind, { allowVideo = false } = {}) {
+function makeUploader(kind, { allowVideo = false, allowedTypes } = {}) {
   const storage = multer.diskStorage({
     destination: (req, file, cb) => cb(null, destinationFor(kind)),
     filename: (req, file, cb) => {
@@ -25,7 +26,7 @@ function makeUploader(kind, { allowVideo = false } = {}) {
   });
 
   const fileFilter = (req, file, cb) => {
-    const allowed = allowVideo ? [...IMAGE_TYPES, ...VIDEO_TYPES] : IMAGE_TYPES;
+    const allowed = allowedTypes || (allowVideo ? [...IMAGE_TYPES, ...VIDEO_TYPES] : IMAGE_TYPES);
     if (!allowed.includes(file.mimetype)) {
       return cb(new Error(`Unsupported file type: ${file.mimetype}`));
     }
@@ -49,4 +50,5 @@ module.exports = {
   uploadStoryMedia: makeUploader("story", { allowVideo: true }).single("media"),
   uploadEventImage: makeUploader("event").single("image"),
   uploadClubImage: makeUploader("club").single("image"),
+  uploadMessageMedia: makeUploader("message", { allowedTypes: [...MESSAGE_IMAGE_TYPES, ...VIDEO_TYPES] }).single("media"),
 };

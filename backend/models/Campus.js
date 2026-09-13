@@ -9,6 +9,8 @@ const clubSchema = new mongoose.Schema(
     coverImage: { url: String, publicId: String },
     members: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     admins: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    submissionSource: { type: String, enum: ["student", "admin"], default: "student" },
     isDemoContent: { type: Boolean, default: false },
   },
   { timestamps: true }
@@ -28,6 +30,8 @@ const eventSchema = new mongoose.Schema(
     club: { type: mongoose.Schema.Types.ObjectId, ref: "Club" },
     timeline: [{ time: String, label: String }],
     participants: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    submissionSource: { type: String, enum: ["student", "admin"], default: "student" },
     isDemoContent: { type: Boolean, default: false },
   },
   { timestamps: true }

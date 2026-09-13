@@ -29,13 +29,13 @@ router.get(
   })
 );
 
-// POST /api/swipes { to, action: "like"|"pass"|"super_like" }
+// POST /api/swipes { to, action: "like"|"pass"|"connect" }
 router.post(
   "/swipes",
   requireAuth,
   asyncHandler(async (req, res) => {
     const { to, action } = req.body;
-    if (!to || !mongoose.isValidObjectId(to) || !["like", "pass", "super_like"].includes(action)) {
+    if (!to || !mongoose.isValidObjectId(to) || !["like", "pass", "connect", "super_like"].includes(action)) {
       return res.status(400).json({ message: "A target user and valid action are required." });
     }
     if (String(to) === String(req.user._id)) return res.status(400).json({ message: "You can't swipe on yourself." });
@@ -51,7 +51,7 @@ router.post(
 
     let matched = null;
     if (action !== "pass") {
-      const reciprocal = await Swipe.findOne({ from: to, to: req.user._id, action: { $in: ["like", "super_like"] } });
+      const reciprocal = await Swipe.findOne({ from: to, to: req.user._id, action: { $in: ["like", "connect", "super_like"] } });
       if (reciprocal) {
         const pairKey = [String(req.user._id), String(to)].sort().join(":");
         const existing = await Match.findOne({
@@ -114,7 +114,7 @@ router.get(
   asyncHandler(async (req, res) => {
     const matches = await Match.find({ users: req.user._id, isActive: true })
       .sort({ lastMessageAt: -1, createdAt: -1 })
-      .populate("users", "name profilePhoto collegeName branch year");
+      .populate("users", "name profilePhoto collegeName branch year lastActiveAt");
     const shaped = matches.map((m) => ({
       _id: m._id,
       user: m.users.find((u) => String(u._id) !== String(req.user._id)),

@@ -71,12 +71,21 @@ export const fetchMatches = () => api.get("/matches").then((r) => r.data.matches
 
 // ---- Messages ----
 export const fetchMessages = (matchId, page = 1) => api.get(`/messages/${matchId}`, { params: { page } }).then((r) => r.data.messages);
-export const sendMessage = (matchId, text) => api.post("/messages", { matchId, text }).then((r) => r.data.message);
+export const sendMessage = (matchId, text, file) => {
+  if (!file) return api.post("/messages", { matchId, text }).then((r) => r.data.message);
+  const form = new FormData();
+  form.append("matchId", matchId);
+  form.append("text", text || "");
+  form.append("media", file);
+  return api.post("/messages", form).then((r) => r.data.message);
+};
 
 // ---- Explore / Clubs / Events / Search ----
 export const fetchClubs = (college) => api.get("/clubs", { params: { college } }).then((r) => r.data.clubs);
+export const createClub = (formData) => api.post("/clubs", formData).then((r) => r.data.club);
 export const joinClub = (id) => api.post(`/clubs/${id}/join`).then((r) => r.data.club);
 export const fetchEvents = (college) => api.get("/events", { params: { college } }).then((r) => r.data.events);
+export const createEvent = (formData) => api.post("/events", formData).then((r) => r.data.event);
 export const registerForEvent = (id) => api.post(`/events/${id}/register`).then((r) => r.data.event);
 export const search = (q) => api.get("/search", { params: { q } }).then((r) => r.data);
 

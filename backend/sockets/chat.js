@@ -24,6 +24,7 @@ function attachChatSocket(io) {
 
     if (!onlineUsers.has(userId)) onlineUsers.set(userId, new Set());
     onlineUsers.get(userId).add(socket.id);
+    socket.emit("presence:snapshot", { userIds: [...onlineUsers.keys()] });
     io.emit("presence:update", { userId, online: true });
 
     const authorizedMatch = (matchId) => Match.findOne({ _id: matchId, users: userId, isActive: true });
@@ -70,12 +71,13 @@ function attachChatSocket(io) {
       socket.to(`match:${matchId}`).emit("chat:read", { matchId, userId });
     });
 
-    socket.on("disconnect", () => {
+    socket.on("disconnect", async () => {
       const sockets = onlineUsers.get(userId);
       if (sockets) {
         sockets.delete(socket.id);
         if (sockets.size === 0) {
           onlineUsers.delete(userId);
+          await User.updateOne({ _id: userId }, { $set: { lastActiveAt: new Date() } }).catch(() => null);
           io.emit("presence:update", { userId, online: false });
         }
       }

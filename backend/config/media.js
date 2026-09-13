@@ -30,6 +30,7 @@ const FOLDERS = {
   thumbnail: "campusmate/reel-thumbnails",
   event: "campusmate/events",
   club: "campusmate/clubs",
+  message: "campusmate/messages",
 };
 
 async function saveUploadedFile(file, kind) {

@@ -47,7 +47,7 @@ const swipeSchema = new mongoose.Schema(
   {
     from: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
     to: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-    action: { type: String, enum: ["like", "pass", "super_like"], required: true },
+    action: { type: String, enum: ["like", "pass", "connect", "super_like"], required: true },
   },
   { timestamps: true }
 );
@@ -57,7 +57,14 @@ const messageSchema = new mongoose.Schema(
   {
     match: { type: mongoose.Schema.Types.ObjectId, ref: "Match", required: true },
     sender: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-    text: { type: String, maxlength: 2000 },
+    text: { type: String, maxlength: 2000, default: "" },
+    type: { type: String, enum: ["text", "image", "video", "gif"], default: "text" },
+    media: {
+      url: String,
+      publicId: String,
+      mimeType: String,
+      originalName: String,
+    },
     readBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     deletedFor: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
   },

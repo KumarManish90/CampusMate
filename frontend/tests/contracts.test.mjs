@@ -22,3 +22,19 @@ test("mobile layout resets the viewport and collapses explore grids", () => {
   assert.match(app, /className="cm-explore-grid"/);
   assert.match(app, /className="cm-scroll-row cm-explore-tabs"/);
 });
+test("login skips signup onboarding while new accounts can complete it", () => {
+  assert.match(app, /isNewAccount: mode === "register"/);
+  assert.match(app, /setView\(isNewAccount \? "onboarding" : "app"\)/);
+});
+test("chat exposes presence, emoji and media controls", () => {
+  assert.match(native, /presence:snapshot/);
+  assert.match(native, /CHAT_EMOJIS/);
+  assert.match(native, /image\/gif/);
+  assert.match(native, /Paperclip/);
+});
+test("students can create communities and upcoming events", () => {
+  assert.match(app, /Create campus community/);
+  assert.match(app, /Add upcoming event/);
+  assert.match(app, /cmApi\.createClub/);
+  assert.match(app, /cmApi\.createEvent/);
+});
