@@ -1232,7 +1232,7 @@ function NotificationsPanel({ t, onClose, authUser }) {
 
 const NAV_ITEMS = [
   { key: "home", label: "Home", icon: Home },
-  { key: "discover", label: "Match", icon: Heart },
+  { key: "explore", label: "Explore", icon: Compass },
   { key: "messages", label: "Messages", icon: MessageCircle },
   { key: "profile", label: "Profile", icon: User },
 ];
@@ -2970,6 +2970,7 @@ export default function CampusMateApp() {
           t={t} dark={dark} setDark={setDark}
           onAuthed={(user, { isNewAccount } = {}) => {
             setAuthUser(user);
+            setTab("home");
             setPosts([]);
             setReels([]);
             setMatches([]);
@@ -2997,6 +2998,7 @@ export default function CampusMateApp() {
               interests: profile.interests, lookingFor: profile.lookingFor,
             }).catch(() => {});
           }
+          setTab("home");
           setView("app");
         }} />
       </div>
@@ -3032,7 +3034,7 @@ export default function CampusMateApp() {
           />
         )}
         {tab === "messages" && <NativeMessages onClose={() => setTab("home")} />}
-        {tab === "profile" && <NativeProfile me={authUser} dark={dark} setDark={setDark} onUserChange={(user) => { setAuthUser(user); setProfile(p => ({ ...p, name: user.name || p.name, college: user.collegeName || p.college, branch: user.branch || "", year: user.year || "", bio: user.bio || "", interests: user.interests || [], lookingFor: user.lookingFor || "" })); }} onLogout={() => { setAuthUser(null); setView("landing"); }} />}
+        {tab === "profile" && <NativeProfile me={authUser} dark={dark} setDark={setDark} onUserChange={(user) => { setAuthUser(user); setProfile(p => ({ ...p, name: user.name || p.name, college: user.collegeName || p.college, branch: user.branch || "", year: user.year || "", bio: user.bio || "", interests: user.interests || [], lookingFor: user.lookingFor || "" })); }} onLogout={() => { setAuthUser(null); setTab("home"); setView("landing"); }} />}
         </FeatureErrorBoundary>
       </Shell>
 

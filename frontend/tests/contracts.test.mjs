@@ -66,6 +66,12 @@ test("mobile app exposes CampusMate beside greeting and keeps theme inside Profi
   assert.match(app, /Switch to light mode/);
   assert.match(css, /\.cm-app-content button:active/);
   assert.match(css, /\.cm-mobile-toolbar\{display:none!important\}/);
+  assert.match(css, /\.cm-mobile-brand\{[^}]*border:0[^}]*background:transparent/);
+});
+test("login resets to Home and mobile nav exposes Explore instead of Match", () => {
+  assert.match(app, /onAuthed=\{\(user[\s\S]*?setTab\("home"\)/);
+  assert.match(app, /\{ key: "explore", label: "Explore", icon: Compass \}/);
+  assert.doesNotMatch(app, /\{ key: "discover", label: "Match", icon: Heart \}/);
 });
 test("profile is centered, responsive and isolates partial API failures", () => {
   assert.match(native, /Promise\.allSettled/);
