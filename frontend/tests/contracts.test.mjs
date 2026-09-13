@@ -59,11 +59,13 @@ test("native API collections use safe array defaults", () => {
   assert.match(native, /Array\.isArray\(data\) \? data : \[\]/);
   assert.match(native, /Array\.isArray\(userIds\) \? userIds : \[\]/);
 });
-test("mobile app exposes cinematic back, theme control and touch feedback", () => {
-  assert.match(app, /className="cm-mobile-toolbar"/);
-  assert.match(app, /aria-label="Back to cinematic page"/);
+test("mobile app exposes CampusMate beside greeting and keeps theme inside Profile", () => {
+  assert.match(app, /className="cm-mobile-brand"/);
+  assert.match(app, /aria-label="Open CampusMate cinematic page"/);
+  assert.match(app, /tab === "profile" && <div className="cm-profile-theme"/);
   assert.match(app, /Switch to light mode/);
   assert.match(css, /\.cm-app-content button:active/);
+  assert.match(css, /\.cm-mobile-toolbar\{display:none!important\}/);
 });
 test("profile is centered, responsive and isolates partial API failures", () => {
   assert.match(native, /Promise\.allSettled/);

@@ -1298,16 +1298,7 @@ function Shell({ t, dark, setDark, tab, setTab, children, unread, onCreate, conn
       </div>
 
       <div className="cm-app-content" style={{ flex: 1, minWidth: 0, paddingBottom: 76 }}>
-        <header className="cm-mobile-toolbar" style={{ background: t.bg2 }}>
-          <button type="button" onClick={onBrandClick} aria-label="Back to cinematic page">
-            <Logo t={t} size={22} />
-            <span>Cinematic</span>
-          </button>
-          <button type="button" onClick={() => setDark(!dark)} aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}>
-            {dark ? <Sun size={18} /> : <Moon size={18} />}
-            <span>{dark ? "Light" : "Dark"}</span>
-          </button>
-        </header>
+        {tab === "profile" && <div className="cm-profile-theme"><button type="button" onClick={() => setDark(!dark)} aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}>{dark ? <Sun size={17} /> : <Moon size={17} />}<span>{dark ? "Light mode" : "Dark mode"}</span></button></div>}
         {children}
       </div>
 
@@ -1358,17 +1349,20 @@ function Shell({ t, dark, setDark, tab, setTab, children, unread, onCreate, conn
   );
 }
 
-function TopBar({ t, title, subtitle, onBell }) {
+function TopBar({ t, title, subtitle, onBell, onBrandClick }) {
   return (
     <div className="cm-topbar" style={{ padding: "22px 24px 6px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-      <div>
-        <h1 className="cm-display" style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>{title}</h1>
-        {subtitle && <p style={{ fontSize: 13, color: t.textMuted, margin: "4px 0 0" }}>{subtitle}</p>}
+      <div className="cm-topbar-main">
+        {onBrandClick && <button className="cm-mobile-brand" type="button" onClick={onBrandClick} aria-label="Open CampusMate cinematic page"><Logo t={t} size={22} /></button>}
+        <div>
+          <h1 className="cm-display" style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>{title}</h1>
+          {subtitle && <p style={{ fontSize: 13, color: t.textMuted, margin: "4px 0 0" }}>{subtitle}</p>}
+        </div>
       </div>
-      <button onClick={onBell} style={{ width: 38, height: 38, borderRadius: 12, border: `1px solid ${t.border}`, background: t.surface, display: "flex", alignItems: "center", justifyContent: "center", position: "relative", cursor: "pointer" }}>
+      {onBell && <button onClick={onBell} style={{ width: 38, height: 38, borderRadius: 12, border: `1px solid ${t.border}`, background: t.surface, display: "flex", alignItems: "center", justifyContent: "center", position: "relative", cursor: "pointer" }}>
         <Bell size={16} color={t.text} />
         <span style={{ position: "absolute", top: -3, right: -3, width: 8, height: 8, borderRadius: "50%", background: TOKENS.like, border: `2px solid ${t.bg}` }} />
-      </button>
+      </button>}
     </div>
   );
 }
@@ -1396,7 +1390,7 @@ function AnnouncementsRow({ t }) {
 }
 
 function Feed({ t, profile, authUser, matches, posts, following, students, clubs, events, onToggleFollow, onLike, onSave, onOpenComments,
-                onOpenStory, onBell, setTab, onGoDiscover, onCreateStory }) {
+                onOpenStory, onBell, onBrandClick, setTab, onGoDiscover, onCreateStory }) {
   const stats = [
     { icon: Heart, label: "Matches", value: matches.length, color: TOKENS.like },
     { icon: MessageCircle, label: "Chats", value: matches.length, color: TOKENS.super },
@@ -1405,7 +1399,7 @@ function Feed({ t, profile, authUser, matches, posts, following, students, clubs
 
   return (
     <div>
-      <TopBar t={t} title={`Good morning, ${profile.name?.split(" ")[0] || "there"} 👋`} subtitle="Your campus. Your community." onBell={onBell} />
+      <TopBar t={t} title={`Good morning, ${profile.name?.split(" ")[0] || "there"} 👋`} subtitle="Your campus. Your community." onBell={onBell} onBrandClick={onBrandClick} />
       <div className="cm-page-gutter cm-home-page">
         {authUser ? <NativeStories me={authUser} t={t} onCreate={onCreateStory} /> : <StoriesRow t={t} profile={profile} onOpen={onOpenStory} />}
 
@@ -3024,7 +3018,7 @@ export default function CampusMateApp() {
             students={authUser ? homeStudents : STUDENTS} clubs={authUser ? clubs : CLUBS} events={authUser ? events : EVENTS}
             onToggleFollow={toggleFollow} onLike={likePost} onSave={savePost}
             onOpenComments={(p) => setCommentsPost(p)} onOpenStory={openStory}
-            onBell={() => setShowNotifs((s) => !s)} setTab={setTab} onGoDiscover={() => setTab("discover")}
+            onBell={() => setShowNotifs((s) => !s)} onBrandClick={() => setView("landing")} setTab={setTab} onGoDiscover={() => setTab("discover")}
           />
         )}
         {tab === "discover" && <Discover t={t} profile={profile} authUser={authUser} onMatch={handleMatch} onServerMatch={handleMatch} />}
@@ -3038,7 +3032,7 @@ export default function CampusMateApp() {
           />
         )}
         {tab === "messages" && <NativeMessages onClose={() => setTab("home")} />}
-        {tab === "profile" && <NativeProfile me={authUser} onUserChange={(user) => { setAuthUser(user); setProfile(p => ({ ...p, name: user.name || p.name, college: user.collegeName || p.college, branch: user.branch || "", year: user.year || "", bio: user.bio || "", interests: user.interests || [], lookingFor: user.lookingFor || "" })); }} onLogout={() => { setAuthUser(null); setView("landing"); }} />}
+        {tab === "profile" && <NativeProfile me={authUser} dark={dark} setDark={setDark} onUserChange={(user) => { setAuthUser(user); setProfile(p => ({ ...p, name: user.name || p.name, college: user.collegeName || p.college, branch: user.branch || "", year: user.year || "", bio: user.bio || "", interests: user.interests || [], lookingFor: user.lookingFor || "" })); }} onLogout={() => { setAuthUser(null); setView("landing"); }} />}
         </FeatureErrorBoundary>
       </Shell>
 
