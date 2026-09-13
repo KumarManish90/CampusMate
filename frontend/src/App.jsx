@@ -475,7 +475,7 @@ function TriCampusVisual({ t, size = 320 }) {
   );
 }
 
-function LandingPage({ onStart, authUser, onProfile }) {
+function LandingPage({ onStart, authUser }) {
   const features = [
     { icon: Users, title: "Meet People", copy: "Discover students in your college and connect through shared interests.", tone: "violet" },
     { icon: Calendar, title: "Find Events", copy: "Explore upcoming activities and see what is happening around campus.", tone: "mint" },
@@ -490,7 +490,7 @@ function LandingPage({ onStart, authUser, onProfile }) {
         <nav aria-label="Primary navigation">
           <a href="#top">Home</a><a href="#features">Features</a><button onClick={onStart}>Discover</button><a href="#how">How it works</a>
         </nav>
-        <button className="cm-cine-start" onClick={authUser ? onProfile : onStart}>{authUser ? "Profile" : "Get Started"}</button>
+        <button className="cm-cine-start" onClick={onStart}>{authUser ? "Open App" : "Get Started"}</button>
       </header>
       <main>
         <section className="cm-cine-hero" id="top">
@@ -498,7 +498,7 @@ function LandingPage({ onStart, authUser, onProfile }) {
             <p className="cm-cine-kicker">GGITS · GGCT · GGCE</p>
             <h1>Your Campus.<br />A Little <span>Closer.</span></h1>
             <p>Find people, stories, events, clubs and campus matches—all in one place. CampusMate helps your college feel connected.</p>
-            <div className="cm-cine-actions"><button className="cm-cine-primary" onClick={onStart}>Get Started <ArrowRight size={18} /></button><a href="#features">Explore Features</a></div>
+            <div className="cm-cine-actions"><button className="cm-cine-primary" onClick={onStart}>{authUser ? "Open CampusMate" : "Get Started"} <ArrowRight size={18} /></button><a href="#features">Explore Features</a></div>
             <em className="cm-cine-note">Same campus.<br />More possibilities.</em>
           </div>
           <em className="cm-cine-note cm-cine-note-right">More than classmates</em>
@@ -519,7 +519,7 @@ function LandingPage({ onStart, authUser, onProfile }) {
             <button><Calendar size={17} /><span><b>Upcoming Events</b><small>Workshops, socials and more</small></span></button><button><Users size={17} /><span><b>Clubs & Communities</b><small>Find your people</small></span></button><button><BookOpen size={17} /><span><b>Campus Stories</b><small>See what is happening</small></span></button><button onClick={onStart}><MessageCircle size={17} /><span><b>Discover Students</b><small>Connect across your college</small></span></button>
           </div>
         </section>
-        <section className="cm-cine-cta"><div><p className="cm-cine-kicker">A CLOSER CAMPUS AWAITS</p><h2>Ready to find<br />your people?</h2><p>Join CampusMate and make your campus experience more connected.</p><button className="cm-cine-primary" onClick={onStart}>Get Started <ArrowRight size={18} /></button></div></section>
+        <section className="cm-cine-cta"><div><p className="cm-cine-kicker">A CLOSER CAMPUS AWAITS</p><h2>Ready to find<br />your people?</h2><p>Join CampusMate and make your campus experience more connected.</p><button className="cm-cine-primary" onClick={onStart}>{authUser ? "Open CampusMate" : "Get Started"} <ArrowRight size={18} /></button></div></section>
       </main>
       <footer className="cm-cine-footer"><a className="cm-cine-logo" href="#top">Campus<span>mate</span></a><p>For GGITS, GGCT & GGCE</p></footer>
     </div>
@@ -542,6 +542,45 @@ function ToastHost() {
 
   if (!toast) return null;
   return <div className={`cm-global-toast ${toast.type === "error" ? "error" : "success"}`} role={toast.type === "error" ? "alert" : "status"}><span>{toast.type === "error" ? "!" : "✓"}</span><p>{toast.message}</p><button aria-label="Dismiss notification" onClick={() => setToast(null)}>×</button></div>;
+}
+
+class FeatureErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { error };
+  }
+
+  componentDidCatch(error, info) {
+    console.error("CampusMate section recovery", error, info);
+  }
+
+  componentDidUpdate(previousProps) {
+    if (this.state.error && previousProps.resetKey !== this.props.resetKey) {
+      this.setState({ error: null });
+    }
+  }
+
+  goHome = () => {
+    this.setState({ error: null });
+    this.props.onHome();
+  };
+
+  render() {
+    if (!this.state.error) return this.props.children;
+    return (
+      <section className="cm-section-recovery" role="alert">
+        <div>
+          <h2>This section couldn't open.</h2>
+          <p>Your account is safe. You can return to Home without refreshing the app.</p>
+          <button onClick={this.goHome}>Back to Home</button>
+        </div>
+      </section>
+    );
+  }
 }
 /* ============================================================
    ONBOARDING
@@ -2910,8 +2949,10 @@ export default function CampusMateApp() {
           dark={dark}
           setDark={setDark}
           authUser={authUser}
-          onStart={() => setView(authUser ? "app" : "auth")}
-          onProfile={() => { setTab("profile"); setView("app"); }}
+          onStart={() => {
+            if (authUser) setTab("home");
+            setView(authUser ? "app" : "auth");
+          }}
         />
       </div>
     );
@@ -2966,6 +3007,7 @@ export default function CampusMateApp() {
       <ToastHost />
       <Shell t={t} dark={dark} setDark={setDark} tab={tab} setTab={setTab} unread={matches.length} onCreate={() => setShowCreate(true)}
         connectionStatus={backendOnline ? "online" : "offline"} onBrandClick={() => setView("landing")}>
+        <FeatureErrorBoundary resetKey={tab} onHome={() => setTab("home")}>
         {tab === "home" && (
           <Feed
             t={t} profile={profile} authUser={authUser} matches={matches} posts={posts} following={following}
@@ -2987,6 +3029,7 @@ export default function CampusMateApp() {
         )}
         {tab === "messages" && <NativeMessages onClose={() => setTab("home")} />}
         {tab === "profile" && <NativeProfile me={authUser} onUserChange={(user) => { setAuthUser(user); setProfile(p => ({ ...p, name: user.name || p.name, college: user.collegeName || p.college, branch: user.branch || "", year: user.year || "", bio: user.bio || "", interests: user.interests || [], lookingFor: user.lookingFor || "" })); }} onLogout={() => { setAuthUser(null); setView("landing"); }} />}
+        </FeatureErrorBoundary>
       </Shell>
 
       <MatchModal

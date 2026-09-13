@@ -48,3 +48,14 @@ test("section navigation resets scroll and action feedback stays in the viewport
   assert.match(css, /\.cm-global-toast\{position:fixed/);
   assert.doesNotMatch(app, /\{notice && <div className="cm-match-notice"/);
 });
+test("signed-in landing opens the app and render failures recover to Home", () => {
+  assert.match(app, /authUser \? "Open App" : "Get Started"/);
+  assert.match(app, /authUser \? "Open CampusMate" : "Get Started"/);
+  assert.match(app, /<FeatureErrorBoundary resetKey=\{tab\}/);
+  assert.match(main, /Back to CampusMate Home/);
+  assert.doesNotMatch(main, />Try again</);
+});
+test("native API collections use safe array defaults", () => {
+  assert.match(native, /Array\.isArray\(data\) \? data : \[\]/);
+  assert.match(native, /Array\.isArray\(userIds\) \? userIds : \[\]/);
+});

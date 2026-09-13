@@ -17,9 +17,14 @@ class AppErrorBoundary extends React.Component {
     console.error("CampusMate render recovery", error, info);
   }
 
+  recoverHome = () => {
+    sessionStorage.setItem("cm_recover_home", "true");
+    window.location.reload();
+  };
+
   render() {
     if (!this.state.error) return this.props.children;
-    return <main className="cm-crash-recovery"><div><h1>We couldn't open this screen.</h1><p>Your account is safe. Retry the screen without refreshing the whole app.</p><button onClick={() => this.setState({ error: null })}>Try again</button><button onClick={() => window.location.assign("/")}>Go to home</button></div></main>;
+    return <main className="cm-crash-recovery"><div><h1>We couldn't open this screen.</h1><p>Your account is safe. Return to CampusMate Home and continue using the app.</p><button onClick={this.recoverHome}>Back to CampusMate Home</button></div></main>;
   }
 }
 
