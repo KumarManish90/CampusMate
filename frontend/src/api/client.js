@@ -65,6 +65,7 @@ export const deleteStory = (id) => api.delete(`/stories/${id}`).then((r) => r.da
 // ---- Discovery / Matching ----
 export const fetchDiscoverCandidates = (college) => api.get("/discover", { params: { college } }).then((r) => r.data.candidates);
 export const swipe = (to, action) => api.post("/swipes", { to, action }).then((r) => r.data);
+export const resetPassedSwipes = () => api.delete("/swipes/passed").then((r) => r.data);
 export const fetchMatches = () => api.get("/matches").then((r) => r.data.matches);
 
 // ---- Messages ----
