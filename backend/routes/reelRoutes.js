@@ -1,21 +1,23 @@
 const express = require("express");
 const Reel = require("../models/Reel");
 const { Notification } = require("../models/Campus");
-const { requireAuth } = require("../middleware/auth");
+const { requireAuth, optionalAuth } = require("../middleware/auth");
 const { uploadReelVideo, uploadReelThumbnail } = require("../middleware/upload");
-const { saveUploadedFile } = require("../config/media");
+const { saveUploadedFile, deleteStoredFile, deleteStoredFiles } = require("../config/media");
 const { asyncHandler, paginate } = require("../utils/helpers");
+const { visibleQuery } = require("../utils/visibility");
 
 const router = express.Router();
 
 // GET /api/reels?college=GGITS&page=1
 router.get(
   "/",
+  optionalAuth,
   asyncHandler(async (req, res) => {
     const { college } = req.query;
     const { page, limit, skip } = paginate(req, 10, 25);
     const filter = college && college !== "All" ? { college } : {};
-    const reels = await Reel.find(filter)
+    const reels = await Reel.find(await visibleQuery(filter, req.user))
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
@@ -27,8 +29,9 @@ router.get(
 // GET /api/reels/trending — ranked by a modular popularity function
 router.get(
   "/trending",
+  optionalAuth,
   asyncHandler(async (req, res) => {
-    const reels = await Reel.find({}).sort({ createdAt: -1 }).limit(200).populate("author", "name profilePhoto collegeName");
+    const reels = await Reel.find(await visibleQuery({}, req.user)).sort({ createdAt: -1 }).limit(200).populate("author", "name profilePhoto collegeName");
     const ranked = reels
       .map((r) => ({
         reel: r,
@@ -44,8 +47,9 @@ router.get(
 // GET /api/reels/:id
 router.get(
   "/:id",
+  optionalAuth,
   asyncHandler(async (req, res) => {
-    const reel = await Reel.findById(req.params.id).populate("author", "name profilePhoto collegeName verificationStatus");
+    const reel = await Reel.findOne(await visibleQuery({ _id: req.params.id }, req.user)).populate("author", "name profilePhoto collegeName verificationStatus");
     if (!reel) return res.status(404).json({ message: "Reel not found." });
     res.json({ reel });
   })
@@ -62,17 +66,14 @@ router.post(
 
     const { caption = "", hashtags = "", audioName, duration, thumbnailUrl } = req.body;
 
-    const reel = await Reel.create({
-      author: req.user._id,
-      college: req.user.collegeName,
-      videoUrl: savedVideo.url,
-      videoPublicId: savedVideo.publicId,
-      thumbnailUrl: thumbnailUrl || savedVideo.url, // caller can also POST /reels/:id/thumbnail afterward
-      duration: Number(duration) || 10,
-      caption,
-      audioName,
-      hashtags: String(hashtags).split(",").map((h) => h.trim()).filter(Boolean),
-    });
+    let reel;
+    try {
+      reel = await Reel.create({ author: req.user._id, college: req.user.collegeName, videoUrl: savedVideo.url, videoPublicId: savedVideo.publicId, thumbnailUrl: thumbnailUrl || savedVideo.url, duration: Number(duration) || 10, caption, audioName, hashtags: String(hashtags).split(",").map((h) => h.trim()).filter(Boolean) });
+      await reel.populate("author", "name profilePhoto collegeName verificationStatus");
+    } catch (error) {
+      await deleteStoredFile(savedVideo).catch(() => null);
+      throw error;
+    }
 
     res.status(201).json({ reel });
   })
@@ -84,15 +85,17 @@ router.post(
   requireAuth,
   uploadReelThumbnail,
   asyncHandler(async (req, res) => {
-    const reel = await Reel.findById(req.params.id);
+    const reel = await Reel.findOne(await visibleQuery({ _id: req.params.id }, req.user));
     if (!reel) return res.status(404).json({ message: "Reel not found." });
     if (String(reel.author) !== String(req.user._id)) return res.status(403).json({ message: "Not your reel." });
     if (!req.file) return res.status(400).json({ message: "No thumbnail was uploaded." });
 
     const saved = await saveUploadedFile(req.file, "thumbnail");
+    const previousThumbnail = reel.thumbnailPublicId ? { url: reel.thumbnailUrl, publicId: reel.thumbnailPublicId } : null;
     reel.thumbnailUrl = saved.url;
     reel.thumbnailPublicId = saved.publicId;
     await reel.save();
+    await deleteStoredFile(previousThumbnail).catch(() => null);
     res.json({ reel });
   })
 );
@@ -101,11 +104,15 @@ router.delete(
   "/:id",
   requireAuth,
   asyncHandler(async (req, res) => {
-    const reel = await Reel.findById(req.params.id);
+    const reel = await Reel.findOne(await visibleQuery({ _id: req.params.id }, req.user));
     if (!reel) return res.status(404).json({ message: "Reel not found." });
     if (String(reel.author) !== String(req.user._id) && !req.user.isAdmin) {
       return res.status(403).json({ message: "You can only delete your own reels." });
     }
+    await deleteStoredFiles([
+      { url: reel.videoUrl, publicId: reel.videoPublicId },
+      reel.thumbnailPublicId ? { url: reel.thumbnailUrl, publicId: reel.thumbnailPublicId } : null,
+    ]);
     await reel.deleteOne();
     res.json({ message: "Reel deleted." });
   })
@@ -115,7 +122,7 @@ router.post(
   "/:id/like",
   requireAuth,
   asyncHandler(async (req, res) => {
-    const reel = await Reel.findById(req.params.id);
+    const reel = await Reel.findOne(await visibleQuery({ _id: req.params.id }, req.user));
     if (!reel) return res.status(404).json({ message: "Reel not found." });
     const already = reel.likes.some((id) => String(id) === String(req.user._id));
     if (already) {
@@ -135,7 +142,7 @@ router.post(
   "/:id/save",
   requireAuth,
   asyncHandler(async (req, res) => {
-    const reel = await Reel.findById(req.params.id);
+    const reel = await Reel.findOne(await visibleQuery({ _id: req.params.id }, req.user));
     if (!reel) return res.status(404).json({ message: "Reel not found." });
     const already = reel.savedBy.some((id) => String(id) === String(req.user._id));
     reel.savedBy = already
@@ -153,7 +160,7 @@ router.post(
   "/:id/view",
   requireAuth,
   asyncHandler(async (req, res) => {
-    const reel = await Reel.findById(req.params.id);
+    const reel = await Reel.findOne(await visibleQuery({ _id: req.params.id }, req.user));
     if (!reel) return res.status(404).json({ message: "Reel not found." });
     const alreadyViewed = reel.viewedBy.some((id) => String(id) === String(req.user._id));
     if (!alreadyViewed) {

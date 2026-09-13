@@ -1,12 +1,14 @@
 const express = require("express");
 const Post = require("../models/Post");
 const User = require("../models/User");
+const Comment = require("../models/Comment");
 const { Follow } = require("../models/Social");
 const { Notification } = require("../models/Campus");
 const { requireAuth, optionalAuth } = require("../middleware/auth");
 const { uploadPostMedia } = require("../middleware/upload");
-const { saveUploadedFile } = require("../config/media");
+const { saveUploadedFile, deleteStoredFile } = require("../config/media");
 const { asyncHandler, paginate, scorePost } = require("../utils/helpers");
+const { visibleQuery } = require("../utils/visibility");
 
 const router = express.Router();
 
@@ -28,14 +30,10 @@ router.get(
       if (!req.user) return res.json({ posts: [], page, hasMore: false });
       query.author = { $in: followingIds };
     } else if (filter && filter !== "For You" && filter !== "All") {
-      // Any college name is valid now (multi-college support) — not just
-      // the original three launch colleges.
       query.college = filter;
     }
 
-    // Pull a slightly larger recent window, then rank in-app (keeps ranking readable/tunable
-    // without needing a separate materialized "score" field for this dataset size).
-    const candidates = await Post.find(query)
+    const candidates = await Post.find(await visibleQuery(query, req.user))
       .sort({ createdAt: -1 })
       .limit(200)
       .populate("author", "name profilePhoto collegeName branch year verificationStatus interests");
@@ -53,8 +51,9 @@ router.get(
 // GET /api/posts/:id
 router.get(
   "/posts/:id",
+  optionalAuth,
   asyncHandler(async (req, res) => {
-    const post = await Post.findById(req.params.id).populate("author", "name profilePhoto collegeName branch year verificationStatus");
+    const post = await Post.findOne(await visibleQuery({ _id: req.params.id }, req.user)).populate("author", "name profilePhoto collegeName branch year verificationStatus");
     if (!post) return res.status(404).json({ message: "Post not found." });
     res.json({ post });
   })
@@ -71,20 +70,21 @@ router.post(
 
     let media = [];
     if (type !== "text") {
-      media = await Promise.all(files.map((f) => saveUploadedFile(f, "post")));
+      for (const file of files) {
+        try { media.push(await saveUploadedFile(file, "post")); }
+        catch (error) { await Promise.all(media.map(item => deleteStoredFile(item).catch(() => null))); throw error; }
+      }
       media = media.map((m) => ({ url: m.url, publicId: m.publicId }));
     }
 
-    const post = await Post.create({
-      author: req.user._id,
-      college: req.user.collegeName,
-      type: type || (media.length > 1 ? "carousel" : media.length === 1 ? "photo" : "text"),
-      caption,
-      media,
-      location,
-      hashtags: String(hashtags).split(",").map((h) => h.trim()).filter(Boolean),
-      visibility: visibility || req.user.privacy?.postsDefault || "campus",
-    });
+    let post;
+    try {
+      post = await Post.create({ author: req.user._id, college: req.user.collegeName, type: type || (media.length > 1 ? "carousel" : media.length === 1 ? "photo" : "text"), caption, media, location, hashtags: String(hashtags).split(",").map((h) => h.trim()).filter(Boolean), visibility: visibility || req.user.privacy?.postsDefault || "campus" });
+      await post.populate("author", "name profilePhoto collegeName branch year verificationStatus interests");
+    } catch (error) {
+      await Promise.all(media.map(item => deleteStoredFile(item).catch(() => null)));
+      throw error;
+    }
 
     res.status(201).json({ post });
   })
@@ -95,13 +95,19 @@ router.delete(
   "/posts/:id",
   requireAuth,
   asyncHandler(async (req, res) => {
-    const post = await Post.findById(req.params.id);
+    const post = await Post.findOne(await visibleQuery({ _id: req.params.id }, req.user));
     if (!post) return res.status(404).json({ message: "Post not found." });
     if (String(post.author) !== String(req.user._id) && !req.user.isAdmin) {
       return res.status(403).json({ message: "You can only delete your own posts." });
     }
+
+    await Promise.all((post.media || []).map((media) => deleteStoredFile(media)));
+    await Promise.all([
+      Comment.deleteMany({ post: post._id }),
+      Notification.deleteMany({ post: post._id }),
+    ]);
     await post.deleteOne();
-    res.json({ message: "Post deleted." });
+    res.json({ message: "Post and related media deleted." });
   })
 );
 
@@ -110,7 +116,7 @@ router.post(
   "/posts/:id/like",
   requireAuth,
   asyncHandler(async (req, res) => {
-    const post = await Post.findById(req.params.id);
+    const post = await Post.findOne(await visibleQuery({ _id: req.params.id }, req.user));
     if (!post) return res.status(404).json({ message: "Post not found." });
 
     const already = post.likes.some((id) => String(id) === String(req.user._id));
@@ -132,7 +138,7 @@ router.post(
   "/posts/:id/save",
   requireAuth,
   asyncHandler(async (req, res) => {
-    const post = await Post.findById(req.params.id);
+    const post = await Post.findOne(await visibleQuery({ _id: req.params.id }, req.user));
     if (!post) return res.status(404).json({ message: "Post not found." });
 
     const already = post.savedBy.some((id) => String(id) === String(req.user._id));
@@ -149,7 +155,7 @@ router.post(
   "/posts/:id/share",
   requireAuth,
   asyncHandler(async (req, res) => {
-    const post = await Post.findByIdAndUpdate(req.params.id, { $inc: { sharesCount: 1 } }, { new: true });
+    const post = await Post.findOneAndUpdate(await visibleQuery({ _id: req.params.id }, req.user), { $inc: { sharesCount: 1 } }, { new: true });
     if (!post) return res.status(404).json({ message: "Post not found." });
     res.json({ sharesCount: post.sharesCount });
   })

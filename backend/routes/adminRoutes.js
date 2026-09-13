@@ -4,9 +4,10 @@ const Post = require("../models/Post");
 const Reel = require("../models/Reel");
 const Comment = require("../models/Comment");
 const { Match, Message } = require("../models/Social");
-const { Club, Event, Report } = require("../models/Campus");
+const { Club, Event, Notification, Report } = require("../models/Campus");
 const { requireAuth, requireAdmin } = require("../middleware/auth");
 const { asyncHandler } = require("../utils/helpers");
+const { deleteStoredFiles } = require("../config/media");
 
 const router = express.Router();
 router.use(requireAuth, requireAdmin);
@@ -78,17 +79,46 @@ router.post(
 );
 
 router.delete("/posts/:id", asyncHandler(async (req, res) => {
-  await Post.findByIdAndDelete(req.params.id);
+  const post = await Post.findById(req.params.id);
+  if (!post) return res.status(404).json({ message: "Post not found." });
+  await Promise.all([
+    deleteStoredFiles(post.media),
+    Comment.deleteMany({ target: post._id, targetType: "post" }),
+    Notification.deleteMany({ post: post._id }),
+  ]);
+  await post.deleteOne();
   res.json({ message: "Post removed by admin." });
 }));
 
 router.delete("/reels/:id", asyncHandler(async (req, res) => {
-  await Reel.findByIdAndDelete(req.params.id);
+  const reel = await Reel.findById(req.params.id);
+  if (!reel) return res.status(404).json({ message: "Reel not found." });
+  await Promise.all([
+    deleteStoredFiles([
+      { url: reel.videoUrl, publicId: reel.videoPublicId },
+      reel.thumbnailPublicId ? { url: reel.thumbnailUrl, publicId: reel.thumbnailPublicId } : null,
+    ]),
+    Comment.deleteMany({ target: reel._id, targetType: "reel" }),
+    Notification.deleteMany({ reel: reel._id }),
+  ]);
+  await reel.deleteOne();
   res.json({ message: "Reel removed by admin." });
 }));
 
 router.delete("/comments/:id", asyncHandler(async (req, res) => {
-  await Comment.findByIdAndUpdate(req.params.id, { isDeleted: true, text: "[removed by admin]" });
+  const comment = await Comment.findById(req.params.id);
+  if (!comment) return res.status(404).json({ message: "Comment not found." });
+  if (!comment.isDeleted) {
+    comment.isDeleted = true;
+    comment.text = "[removed by admin]";
+    await Promise.all([
+      comment.save(),
+      (comment.targetType === "post" ? Post : Reel).updateOne(
+        { _id: comment.target, commentsCount: { $gt: 0 } },
+        { $inc: { commentsCount: -1 } }
+      ),
+    ]);
+  }
   res.json({ message: "Comment removed by admin." });
 }));
 

@@ -3,8 +3,9 @@ const User = require("../models/User");
 const Post = require("../models/Post");
 const Reel = require("../models/Reel");
 const { Club, Event, Notification, Report } = require("../models/Campus");
-const { requireAuth } = require("../middleware/auth");
+const { requireAuth, optionalAuth } = require("../middleware/auth");
 const { asyncHandler, paginate } = require("../utils/helpers");
+const { visibleQuery } = require("../utils/visibility");
 
 const router = express.Router();
 
@@ -36,6 +37,7 @@ router.post(
 // GET /api/search?q=hackathon
 router.get(
   "/search",
+  optionalAuth,
   asyncHandler(async (req, res) => {
     const q = (req.query.q || "").trim();
     if (!q) return res.json({ users: [], posts: [], reels: [], clubs: [], events: [], hashtags: [] });
@@ -44,8 +46,8 @@ router.get(
 
     const [users, posts, reels, clubs, events] = await Promise.all([
       User.find({ $or: [{ name: regex }, { bio: regex }] }).limit(10),
-      Post.find({ $or: [{ caption: regex }, { hashtags: regex }] }).sort({ createdAt: -1 }).limit(10),
-      Reel.find({ $or: [{ caption: regex }, { hashtags: regex }] }).sort({ createdAt: -1 }).limit(10),
+      Post.find(await visibleQuery({ $or: [{ caption: regex }, { hashtags: regex }] }, req.user)).sort({ createdAt: -1 }).limit(10),
+      Reel.find(await visibleQuery({ $or: [{ caption: regex }, { hashtags: regex }] }, req.user)).sort({ createdAt: -1 }).limit(10),
       Club.find({ name: regex }).limit(10),
       Event.find({ title: regex }).limit(10),
     ]);
@@ -66,11 +68,12 @@ router.get(
 // GET /api/hashtags/:tag
 router.get(
   "/hashtags/:tag",
+  optionalAuth,
   asyncHandler(async (req, res) => {
     const tag = req.params.tag.startsWith("#") ? req.params.tag : `#${req.params.tag}`;
     const [posts, reels] = await Promise.all([
-      Post.find({ hashtags: tag }).sort({ createdAt: -1 }).limit(50).populate("author", "name profilePhoto collegeName"),
-      Reel.find({ hashtags: tag }).sort({ createdAt: -1 }).limit(50).populate("author", "name profilePhoto collegeName"),
+      Post.find(await visibleQuery({ hashtags: tag }, req.user)).sort({ createdAt: -1 }).limit(50).populate("author", "name profilePhoto collegeName"),
+      Reel.find(await visibleQuery({ hashtags: tag }, req.user)).sort({ createdAt: -1 }).limit(50).populate("author", "name profilePhoto collegeName"),
     ]);
     res.json({ tag, posts, reels });
   })

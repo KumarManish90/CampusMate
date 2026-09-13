@@ -29,18 +29,25 @@ connectionSchema.index({ requester: 1, recipient: 1 }, { unique: true });
 const matchSchema = new mongoose.Schema(
   {
     users: [{ type: mongoose.Schema.Types.ObjectId, ref: "User", required: true }], // always length 2
+    pairKey: { type: String, trim: true },
     lastMessageAt: Date,
     isActive: { type: Boolean, default: true }, // false after unmatch
   },
   { timestamps: true }
 );
 matchSchema.index({ users: 1 });
+matchSchema.index({ pairKey: 1 }, { unique: true, sparse: true });
+matchSchema.pre("validate", function setPairKey() {
+  if (!this.pairKey && this.users?.length === 2) {
+    this.pairKey = this.users.map(String).sort().join(":");
+  }
+});
 
 const swipeSchema = new mongoose.Schema(
   {
     from: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
     to: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-    action: { type: String, enum: ["like", "pass", "super_like"], required: true },
+    action: { type: String, enum: ["like", "pass", "connect", "super_like"], required: true },
   },
   { timestamps: true }
 );
@@ -50,7 +57,14 @@ const messageSchema = new mongoose.Schema(
   {
     match: { type: mongoose.Schema.Types.ObjectId, ref: "Match", required: true },
     sender: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-    text: { type: String, maxlength: 2000 },
+    text: { type: String, maxlength: 2000, default: "" },
+    type: { type: String, enum: ["text", "image", "video", "gif"], default: "text" },
+    media: {
+      url: String,
+      publicId: String,
+      mimeType: String,
+      originalName: String,
+    },
     readBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     deletedFor: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
   },

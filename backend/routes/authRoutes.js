@@ -6,6 +6,7 @@ const User = require("../models/User");
 const College = require("../models/College");
 const { asyncHandler, signToken } = require("../utils/helpers");
 const { requireAuth } = require("../middleware/auth");
+const { sendEmailOtp } = require("../config/email");
 
 const router = express.Router();
 
@@ -23,6 +24,11 @@ const registerSchema = z.object({
   branch: z.string().optional(),
   year: z.string().optional(),
 }).refine((d) => d.collegeId || d.collegeName, { message: "Select or add your college." });
+
+const loginSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(1),
+});
 
 function classifyEmail(email, collegeDomain) {
   if (collegeDomain && email.toLowerCase().endsWith(`@${collegeDomain.toLowerCase()}`)) return "college";
@@ -70,8 +76,9 @@ router.post(
 router.post(
   "/login",
   asyncHandler(async (req, res) => {
-    const { email, password } = req.body;
-    if (!email || !password) return res.status(400).json({ message: "Email and password are required." });
+    const parsed = loginSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "A valid email and password are required." });
+    const { email, password } = parsed.data;
 
     const user = await User.findOne({ email: email.toLowerCase() }).select("+passwordHash");
     if (!user) return res.status(401).json({ message: "Incorrect email or password." });
@@ -99,24 +106,15 @@ router.get(
 // college email — verifying an inbox is a separate, lower-stakes claim
 // than verifying institutional enrollment; see /verify-college below). ----
 //
-// No transactional email provider is wired up in this environment, so in
-// development the OTP is returned directly in the response and logged to
-// the server console instead of emailed. Swap sendOtpEmail() for a real
-// provider (e.g. Resend, SES, SendGrid) before shipping to production —
-// never ship the `devOtp` field to a production response.
-async function sendOtpEmail(email, otp) {
-  console.log(`[dev] Email OTP for ${email}: ${otp} (would be emailed in production)`);
-}
-
 router.post(
   "/send-otp",
   requireAuth,
   asyncHandler(async (req, res) => {
-    const otp = String(crypto.randomInt(100000, 999999));
+    const otp = String(crypto.randomInt(100000, 1000000));
     req.user.emailOtpHash = await bcrypt.hash(otp, 8);
     req.user.emailOtpExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
     await req.user.save();
-    await sendOtpEmail(req.user.email, otp);
+    await sendEmailOtp(req.user.email, otp);
 
     const devMode = process.env.NODE_ENV !== "production";
     res.json({ message: "Verification code sent.", ...(devMode ? { devOtp: otp } : {}) });
@@ -128,6 +126,7 @@ router.post(
   requireAuth,
   asyncHandler(async (req, res) => {
     const { otp } = req.body;
+    if (!/^\d{6}$/.test(String(otp || ""))) return res.status(400).json({ message: "Enter a valid 6-digit code." });
     const user = await User.findById(req.user._id).select("+emailOtpHash +emailOtpExpiresAt");
     if (!user.emailOtpHash || !user.emailOtpExpiresAt || user.emailOtpExpiresAt < new Date()) {
       return res.status(400).json({ message: "Code expired. Request a new one." });

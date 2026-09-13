@@ -7,7 +7,7 @@ export default function BottomNav({ items, tab, setTab, unread = 0, onCreate, to
       {items.slice(0, 2).map((item) => {
         const active = tab === item.key;
         return (
-          <button key={item.key} onClick={() => setTab(item.key)} aria-current={active ? "page" : undefined} style={{ color: active ? tokens.primary : tokens.textFaint }}>
+          <button className={active ? "is-active" : undefined} key={item.key} onClick={() => setTab(item.key)} aria-current={active ? "page" : undefined} style={{ color: active ? tokens.primary : tokens.textFaint }}>
             <item.icon size={19} />
             <span>{item.label}</span>
           </button>
@@ -19,7 +19,7 @@ export default function BottomNav({ items, tab, setTab, unread = 0, onCreate, to
       {items.slice(2).map((item) => {
         const active = tab === item.key;
         return (
-          <button key={item.key} onClick={() => setTab(item.key)} aria-current={active ? "page" : undefined} style={{ color: active ? tokens.primary : tokens.textFaint }}>
+          <button className={active ? "is-active" : undefined} key={item.key} onClick={() => setTab(item.key)} aria-current={active ? "page" : undefined} style={{ color: active ? tokens.primary : tokens.textFaint }}>
             <item.icon size={19} />
             <span>{item.label}</span>
             {item.key === "messages" && unread > 0 && <i aria-label={`${unread} unread messages`} />}

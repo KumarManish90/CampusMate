@@ -12,7 +12,7 @@
  */
 import { io } from "socket.io-client";
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:5000";
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "https://campusmate-87k6.onrender.com";
 
 let socket = null;
 

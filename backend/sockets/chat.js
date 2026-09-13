@@ -1,15 +1,18 @@
 const jwt = require("jsonwebtoken");
 const { Match, Message } = require("../models/Social");
+const User = require("../models/User");
 
 const onlineUsers = new Map(); // userId -> Set(socketId)
 
 function attachChatSocket(io) {
-  io.use((socket, next) => {
+  io.use(async (socket, next) => {
     try {
       const token = socket.handshake.auth?.token;
       if (!token) return next(new Error("Authentication required"));
       const payload = jwt.verify(token, process.env.JWT_SECRET);
-      socket.userId = payload.sub;
+      const user = await User.findById(payload.sub).select("isActive isSuspended");
+      if (!user?.isActive || user.isSuspended) return next(new Error("Account is not allowed to connect"));
+      socket.userId = String(user._id);
       next();
     } catch (err) {
       next(new Error("Invalid token"));
@@ -21,20 +24,34 @@ function attachChatSocket(io) {
 
     if (!onlineUsers.has(userId)) onlineUsers.set(userId, new Set());
     onlineUsers.get(userId).add(socket.id);
+    socket.emit("presence:snapshot", { userIds: [...onlineUsers.keys()] });
     io.emit("presence:update", { userId, online: true });
 
-    socket.on("chat:join", (matchId) => socket.join(`match:${matchId}`));
+    const authorizedMatch = (matchId) => Match.findOne({ _id: matchId, users: userId, isActive: true });
+
+    socket.on("chat:join", async (matchId, ack) => {
+      try {
+        const match = await authorizedMatch(matchId);
+        if (!match) return ack?.({ error: "Not authorized for this conversation." });
+        await socket.join(`match:${matchId}`);
+        ack?.({ joined: true });
+      } catch (_) {
+        ack?.({ error: "Could not join conversation." });
+      }
+    });
     socket.on("chat:leave", (matchId) => socket.leave(`match:${matchId}`));
 
-    socket.on("chat:typing", ({ matchId, isTyping }) => {
-      socket.to(`match:${matchId}`).emit("chat:typing", { matchId, userId, isTyping });
+    socket.on("chat:typing", async ({ matchId, isTyping }) => {
+      if (await authorizedMatch(matchId)) {
+        socket.to(`match:${matchId}`).emit("chat:typing", { matchId, userId, isTyping: !!isTyping });
+      }
     });
 
     socket.on("chat:message", async ({ matchId, text }, ack) => {
       try {
         if (!text?.trim()) return ack?.({ error: "Empty message." });
         const match = await Match.findById(matchId);
-        if (!match || !match.users.some((u) => String(u) === String(userId))) {
+        if (!match?.isActive || !match.users.some((u) => String(u) === String(userId))) {
           return ack?.({ error: "Not authorized for this conversation." });
         }
         const message = await Message.create({ match: matchId, sender: userId, text: text.trim(), readBy: [userId] });
@@ -49,16 +66,18 @@ function attachChatSocket(io) {
     });
 
     socket.on("chat:read", async ({ matchId }) => {
+      if (!(await authorizedMatch(matchId))) return;
       await Message.updateMany({ match: matchId, readBy: { $ne: userId } }, { $push: { readBy: userId } });
       socket.to(`match:${matchId}`).emit("chat:read", { matchId, userId });
     });
 
-    socket.on("disconnect", () => {
+    socket.on("disconnect", async () => {
       const sockets = onlineUsers.get(userId);
       if (sockets) {
         sockets.delete(socket.id);
         if (sockets.size === 0) {
           onlineUsers.delete(userId);
+          await User.updateOne({ _id: userId }, { $set: { lastActiveAt: new Date() } }).catch(() => null);
           io.emit("presence:update", { userId, online: false });
         }
       }

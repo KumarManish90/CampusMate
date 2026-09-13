@@ -31,15 +31,30 @@ router.post(
   requireAuth,
   uploadEventImage,
   asyncHandler(async (req, res) => {
-    const { title, college, description, date, venue, organizer } = req.body;
-    if (!title || !college || !date) return res.status(400).json({ message: "title, college and date are required." });
+    const { title, description, date, venue } = req.body;
+    const cleanTitle = String(title || "").trim();
+    const eventDate = new Date(date);
+    if (cleanTitle.length < 3 || cleanTitle.length > 100) return res.status(400).json({ message: "Event title must be 3–100 characters." });
+    if (Number.isNaN(eventDate.getTime()) || eventDate <= new Date()) return res.status(400).json({ message: "Choose a valid upcoming date and time." });
+    if (String(description || "").length > 1000 || String(venue || "").length > 120) return res.status(400).json({ message: "Event details are too long." });
 
     let image;
     if (req.file) {
       const saved = await saveUploadedFile(req.file, "event");
       image = { url: saved.url, publicId: saved.publicId };
     }
-    const event = await Event.create({ title, college, description, date, venue, organizer, image });
+    const event = await Event.create({
+      title: cleanTitle,
+      college: req.user.collegeName,
+      description: String(description || "").trim(),
+      date: eventDate,
+      venue: String(venue || "").trim(),
+      organizer: req.user.name,
+      image,
+      createdBy: req.user._id,
+      submissionSource: req.user.isAdmin ? "admin" : "student",
+      participants: [req.user._id],
+    });
     res.status(201).json({ event });
   })
 );

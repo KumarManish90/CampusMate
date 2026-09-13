@@ -9,6 +9,8 @@ import {
   ChevronUp, ChevronDown, Clapperboard, Loader2, WifiOff
 } from "lucide-react";
 import * as cmApi from "./api/client";
+import { NativeMessages, NativeProfile, NativeReels, NativeStories } from "./NativeFeatures.jsx";
+import { CAMPUSMATE_TOAST_EVENT, showToast } from "./utils/toast.js";
 
 /* ============================================================
    DESIGN TOKENS
@@ -49,6 +51,8 @@ const TOKENS = {
   ggct: "#38BDF8",
   ggce: "#F5A524",
 };
+
+const DEMO_MODE_ENABLED = import.meta.env.DEV || import.meta.env.VITE_ENABLE_DEMO_MODE === "true";
 
 const COLLEGE_COLOR = { GGITS: TOKENS.ggits, GGCT: TOKENS.ggct, GGCE: TOKENS.ggce };
 const COLLEGE_COLOR_PALETTE = [TOKENS.primary, TOKENS.super, TOKENS.amber, TOKENS.primary2, "#34D399", "#FB7185"];
@@ -158,24 +162,55 @@ function registerLiveUser(apiUser) {
 const byId = (id) => STUDENTS.find((s) => s.id === id) || liveUserCache[id] || { id, name: "Unknown", college: "—", interests: [] };
 
 function adaptApiPost(p) {
-  const author = registerLiveUser(p.author);
+  const author = registerLiveUser(p.author) || {};
   return {
-    id: p._id, authorId: p.author?._id, type: p.type,
+    id: p._id, authorId: p.author?._id || p.author, type: p.type,
     caption: p.caption || "", hashtags: p.hashtags || [],
     likesCount: p.likesCount ?? (p.likes?.length || 0), commentsCount: p.commentsCount || 0, savesCount: p.savesCount || 0,
-    createdAt: timeAgo(p.createdAt), comments: [], media: p.media, college: author.college,
+    createdAt: timeAgo(p.createdAt), comments: [], media: p.media || [], images: p.media?.length || 0, college: author.college,
   };
 }
 function adaptApiReel(r) {
-  const author = registerLiveUser(r.author);
+  const author = registerLiveUser(r.author) || {};
   return {
-    id: r._id, authorId: r.author?._id, caption: r.caption || "", audioName: r.audioName || "Original Audio",
+    id: r._id, authorId: r.author?._id || r.author, caption: r.caption || "", audioName: r.audioName || "Original Audio",
     hashtags: r.hashtags || [], likesCount: r.likesCount ?? (r.likes?.length || 0), commentsCount: r.commentsCount || 0,
     views: r.viewsCount || 0, duration: r.duration, videoUrl: r.videoUrl, thumbnailUrl: r.thumbnailUrl, college: author.college,
   };
 }
 function adaptApiStudent(u) {
-  return registerLiveUser(u);
+  const student = registerLiveUser(u) || {};
+  return {
+    ...student,
+    name: student.name || "CampusMate student",
+    college: student.college || "Campus",
+    branch: student.branch || "",
+    year: student.year || "",
+    bio: student.bio || "",
+    interests: Array.isArray(student.interests) ? student.interests : [],
+  };
+}
+function adaptApiClub(c) {
+  return {
+    id: c._id, name: c.name, college: c.college, desc: c.description || "",
+    members: c.membersCount ?? c.members?.length ?? 0, icon: Users, isDemo: false,
+  };
+}
+function adaptApiEvent(e) {
+  const date = new Date(e.date);
+  return {
+    id: e._id, title: e.title, college: e.college,
+    date: Number.isNaN(date.getTime()) ? "Date TBA" : date.toLocaleDateString("en-IN", { day: "numeric", month: "short" }),
+    time: Number.isNaN(date.getTime()) ? "Time TBA" : date.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" }),
+    participants: e.participantsCount ?? e.participants?.length ?? 0, isDemo: false,
+  };
+}
+function adaptApiComment(c) {
+  registerLiveUser(c.author);
+  return {
+    id: c._id, authorId: c.author?._id || c.author,
+    text: c.text || "", time: timeAgo(c.createdAt),
+  };
 }
 function timeAgo(dateStr) {
   if (!dateStr) return "";
@@ -234,7 +269,7 @@ const SOCIAL_NOTIFS = [
 function GlobalStyle() {
   return (
     <style>{`
-      @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap');
+      @import url('https://fonts.googleapis.com/css2?family=Caveat:wght@500;600&family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap');
       * { box-sizing: border-box; }
       .cm-root { font-family: 'Inter', sans-serif; }
       .cm-display { font-family: 'Space Grotesk', sans-serif; }
@@ -324,16 +359,17 @@ function GlassCard({ t, children, style, onClick }) {
   );
 }
 
-function PrimaryButton({ children, onClick, style, icon: Icon }) {
+function PrimaryButton({ children, onClick, style, icon: Icon, disabled = false }) {
   return (
     <button
       onClick={onClick}
+      disabled={disabled}
       style={{
         display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8,
         background: `linear-gradient(135deg, ${TOKENS.primary}, ${TOKENS.primary2})`,
         color: "#fff", border: "none", borderRadius: 14,
         padding: "13px 22px", fontSize: 14.5, fontWeight: 700,
-        cursor: "pointer", boxShadow: "0 10px 30px -10px rgba(109,93,246,0.65)",
+        cursor: disabled ? "not-allowed" : "pointer", boxShadow: "0 10px 30px -10px rgba(109,93,246,0.65)",
         transition: "transform .15s ease, box-shadow .15s ease", ...style,
       }}
       onMouseDown={(e) => (e.currentTarget.style.transform = "scale(0.97)")}
@@ -345,14 +381,15 @@ function PrimaryButton({ children, onClick, style, icon: Icon }) {
   );
 }
 
-function GhostButton({ children, onClick, t, style }) {
+function GhostButton({ children, onClick, t, style, disabled = false }) {
   return (
     <button
       onClick={onClick}
+      disabled={disabled}
       style={{
         background: "transparent", color: t.text, border: `1px solid ${t.border}`,
         borderRadius: 14, padding: "13px 22px", fontSize: 14.5, fontWeight: 600,
-        cursor: "pointer", transition: "background .15s ease", ...style,
+        cursor: disabled ? "wait" : "pointer", opacity: disabled ? 0.6 : 1, transition: "background .15s ease", ...style,
       }}
       onMouseEnter={(e) => (e.currentTarget.style.background = t.surface)}
       onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
@@ -438,95 +475,113 @@ function TriCampusVisual({ t, size = 320 }) {
   );
 }
 
-function LandingPage({ t, dark, setDark, onStart }) {
+function LandingPage({ onStart, authUser }) {
+  const features = [
+    { icon: Users, title: "Meet People", copy: "Discover students in your college and connect through shared interests.", tone: "violet" },
+    { icon: Calendar, title: "Find Events", copy: "Explore upcoming activities and see what is happening around campus.", tone: "mint" },
+    { icon: BookOpen, title: "Explore Clubs", copy: "Find communities built around the things you care about.", tone: "amber" },
+    { icon: MessageCircle, title: "Campus Matching", copy: "Meet students beyond your classroom in a familiar campus space.", tone: "rose" },
+  ];
+
   return (
-    <div style={{ minHeight: "100vh", position: "relative", overflow: "hidden", background: t.bg, color: t.text }}>
-      {/* ambient blobs */}
-      <div style={{ position: "absolute", top: -120, left: -100, width: 380, height: 380, borderRadius: "50%",
-        background: `radial-gradient(circle, ${TOKENS.primary}55, transparent 70%)`, filter: "blur(10px)",
-        animation: "cmFloat 9s ease-in-out infinite" }} />
-      <div style={{ position: "absolute", bottom: -140, right: -100, width: 420, height: 420, borderRadius: "50%",
-        background: `radial-gradient(circle, ${TOKENS.amber}44, transparent 70%)`, filter: "blur(10px)",
-        animation: "cmFloatSlow 11s ease-in-out infinite" }} />
-
-      <div style={{ position: "relative", zIndex: 2, maxWidth: 1100, margin: "0 auto", padding: "22px 20px 80px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <Logo t={t} />
-          <button onClick={() => setDark(!dark)} style={{
-            width: 38, height: 38, borderRadius: 12, border: `1px solid ${t.border}`,
-            background: t.surface, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer",
-          }}>
-            {dark ? <Sun size={16} color={t.text} /> : <Moon size={16} color={t.text} />}
-          </button>
-        </div>
-
-        <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 40, marginTop: 40 }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 18, animation: "cmFadeUp .6s ease both" }}>
-            <Badge color={TOKENS.primary} style={{ width: "fit-content" }}>
-              <Sparkles size={11} /> ONE CAMPUS · THREE COLLEGES
-            </Badge>
-            <h1 className="cm-display" style={{ fontSize: "clamp(34px,7vw,58px)", lineHeight: 1.05, fontWeight: 700, margin: 0, letterSpacing: -1 }}>
-              Connect. Match.<br />
-              <span style={{ background: `linear-gradient(90deg, ${TOKENS.primary}, ${TOKENS.amber})`, WebkitBackgroundClip: "text", color: "transparent" }}>
-                Belong.
-              </span>
-            </h1>
-            <p style={{ fontSize: 16.5, color: t.textMuted, maxWidth: 480, lineHeight: 1.6 }}>
-              CampusMate brings <strong style={{ color: t.text }}>GGITS</strong>, <strong style={{ color: t.text }}>GGCT</strong> and{" "}
-              <strong style={{ color: t.text }}>GGCE</strong> onto one digital campus — meet students, build friendships,
-              find teammates, and discover what's happening across Gyan Ganga, Jabalpur.
-            </p>
-            <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 4 }}>
-              <PrimaryButton onClick={onStart} icon={ArrowRight}>Get Started</PrimaryButton>
-              <GhostButton t={t} onClick={onStart}>Explore Campus</GhostButton>
-            </div>
-            <div style={{ display: "flex", gap: 22, marginTop: 10, flexWrap: "wrap" }}>
-              {COLLEGES.map((c) => (
-                <div key={c.code} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ width: 9, height: 9, borderRadius: "50%", background: collegeColor(c.code) }} />
-                  <span style={{ fontSize: 13, color: t.textMuted, fontWeight: 600 }}>{c.code}</span>
-                </div>
-              ))}
-              <span style={{ fontSize: 11.5, color: t.textFaint }}>· demo figures shown in-app</span>
-            </div>
+    <div className="cm-cinematic">
+      <header className="cm-cine-nav">
+        <a className="cm-cine-logo" href="#top" aria-label="CampusMate home">Campus<span>mate</span></a>
+        <nav aria-label="Primary navigation">
+          <a href="#top">Home</a><a href="#features">Features</a><button onClick={onStart}>Discover</button><a href="#how">How it works</a>
+        </nav>
+        <button className="cm-cine-start" onClick={onStart}>{authUser ? "Open App" : "Get Started"}</button>
+      </header>
+      <main>
+        <section className="cm-cine-hero" id="top">
+          <div className="cm-cine-hero-copy">
+            <p className="cm-cine-kicker">GGITS · GGCT · GGCE</p>
+            <h1>Your Campus.<br />A Little <span>Closer.</span></h1>
+            <p>Find people, stories, events, clubs and campus matches—all in one place. CampusMate helps your college feel connected.</p>
+            <div className="cm-cine-actions"><button className="cm-cine-primary" onClick={onStart}>{authUser ? "Open CampusMate" : "Get Started"} <ArrowRight size={18} /></button><a href="#features">Explore Features</a></div>
+            <em className="cm-cine-note">Same campus.<br />More possibilities.</em>
           </div>
-
-          <div style={{ display: "flex", justifyContent: "center", animation: "cmFadeUp .8s ease .1s both" }}>
-            <GlassCard t={t} style={{ padding: 28, width: "100%", maxWidth: 420 }}>
-              <TriCampusVisual t={t} size={320} />
-              <p style={{ textAlign: "center", fontSize: 12.5, color: t.textFaint, marginTop: 4 }}>
-                The tri-campus network — students, clubs and events, all linked.
-              </p>
-            </GlassCard>
+          <em className="cm-cine-note cm-cine-note-right">More than classmates</em>
+        </section>
+        <section className="cm-cine-features" id="features" aria-labelledby="cine-features-title">
+          <div className="cm-cine-section-title"><p>THE CAMPUS EXPERIENCE</p><h2 id="cine-features-title">Everything you need.<br />All in one place.</h2></div>
+          <div className="cm-cine-feature-grid">
+            {features.map((feature) => <article key={feature.title}><span className={`cm-cine-icon ${feature.tone}`}><feature.icon size={28} /></span><h3>{feature.title}</h3><p>{feature.copy}</p></article>)}
           </div>
-        </div>
-
-        {/* value chain */}
-        <div style={{ marginTop: 70 }}>
-          <h3 className="cm-display" style={{ fontSize: 22, fontWeight: 700, marginBottom: 18 }}>Not just matching — a whole ecosystem</h3>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px,1fr))", gap: 14 }}>
-            {[
-              { icon: Heart, label: "Matches", color: TOKENS.like },
-              { icon: Users, label: "Friends", color: TOKENS.primary },
-              { icon: Briefcase, label: "Project Teams", color: TOKENS.super },
-              { icon: GraduationCap, label: "Clubs", color: TOKENS.amber },
-              { icon: Calendar, label: "Events", color: TOKENS.primary2 },
-              { icon: TrendingUp, label: "Opportunities", color: TOKENS.ggct },
-            ].map((v, i) => (
-              <GlassCard key={i} t={t} style={{ padding: "18px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
-                <div style={{ width: 34, height: 34, borderRadius: 10, background: `${v.color}22`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <v.icon size={17} color={v.color} />
-                </div>
-                <span style={{ fontSize: 13.5, fontWeight: 700, color: t.text }}>{v.label}</span>
-              </GlassCard>
-            ))}
+        </section>
+        <section className="cm-cine-how" id="how" aria-labelledby="cine-how-title">
+          <div className="cm-cine-how-copy">
+            <p className="cm-cine-kicker">SIMPLE STEPS</p><h2 id="cine-how-title">How It Works</h2><p>Start in minutes and make more of your campus experience.</p>
+            <ol><li><span>1</span><div><h3>Create Your Profile</h3><p>Tell us a bit about yourself.</p></div></li><li><span>2</span><div><h3>Explore</h3><p>Find people, stories, events and clubs.</p></div></li><li><span>3</span><div><h3>Get Connected</h3><p>Start conversations and join your community.</p></div></li></ol>
           </div>
-        </div>
-      </div>
+          <div className="cm-cine-phone" aria-label="CampusMate mobile preview">
+            <div className="cm-cine-phone-notch" /><strong>Campus<span>mate</span></strong><h3>Discover<br />your campus</h3><div className="cm-cine-phone-search"><Search size={13} /> Search campus</div>
+            <button><Calendar size={17} /><span><b>Upcoming Events</b><small>Workshops, socials and more</small></span></button><button><Users size={17} /><span><b>Clubs & Communities</b><small>Find your people</small></span></button><button><BookOpen size={17} /><span><b>Campus Stories</b><small>See what is happening</small></span></button><button onClick={onStart}><MessageCircle size={17} /><span><b>Discover Students</b><small>Connect across your college</small></span></button>
+          </div>
+        </section>
+        <section className="cm-cine-cta"><div><p className="cm-cine-kicker">A CLOSER CAMPUS AWAITS</p><h2>Ready to find<br />your people?</h2><p>Join CampusMate and make your campus experience more connected.</p><button className="cm-cine-primary" onClick={onStart}>{authUser ? "Open CampusMate" : "Get Started"} <ArrowRight size={18} /></button></div></section>
+      </main>
+      <footer className="cm-cine-footer"><a className="cm-cine-logo" href="#top">Campus<span>mate</span></a><p>For GGITS, GGCT & GGCE</p></footer>
     </div>
   );
 }
 
+function ToastHost() {
+  const [toast, setToast] = useState(null);
+  const timerRef = useRef(null);
+
+  useEffect(() => {
+    const show = event => {
+      clearTimeout(timerRef.current);
+      setToast(event.detail);
+      timerRef.current = setTimeout(() => setToast(null), 3800);
+    };
+    window.addEventListener(CAMPUSMATE_TOAST_EVENT, show);
+    return () => { window.removeEventListener(CAMPUSMATE_TOAST_EVENT, show); clearTimeout(timerRef.current); };
+  }, []);
+
+  if (!toast) return null;
+  return <div className={`cm-global-toast ${toast.type === "error" ? "error" : "success"}`} role={toast.type === "error" ? "alert" : "status"}><span>{toast.type === "error" ? "!" : "✓"}</span><p>{toast.message}</p><button aria-label="Dismiss notification" onClick={() => setToast(null)}>×</button></div>;
+}
+
+class FeatureErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { error };
+  }
+
+  componentDidCatch(error, info) {
+    console.error("CampusMate section recovery", error, info);
+  }
+
+  componentDidUpdate(previousProps) {
+    if (this.state.error && previousProps.resetKey !== this.props.resetKey) {
+      this.setState({ error: null });
+    }
+  }
+
+  goHome = () => {
+    this.setState({ error: null });
+    this.props.onHome();
+  };
+
+  render() {
+    if (!this.state.error) return this.props.children;
+    return (
+      <section className="cm-section-recovery" role="alert">
+        <div>
+          <h2>This section couldn't open.</h2>
+          <p>Your account is safe. You can return to Home without refreshing the app.</p>
+          <button onClick={this.goHome}>Back to Home</button>
+        </div>
+      </section>
+    );
+  }
+}
 /* ============================================================
    ONBOARDING
    ============================================================ */
@@ -759,7 +814,8 @@ function HashtagPill({ tag, onClick, active, t }) {
   );
 }
 
-function TrendingHashtags({ t, onPick }) {
+function TrendingHashtags({ t, onPick, tags = HASHTAGS }) {
+  if (!tags.length) return null;
   return (
     <div style={{ marginTop: 18 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
@@ -767,7 +823,7 @@ function TrendingHashtags({ t, onPick }) {
         <h3 className="cm-display" style={{ fontSize: 15.5, fontWeight: 700, margin: 0 }}>Trending on Campus</h3>
       </div>
       <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4 }}>
-        {HASHTAGS.map((h) => <HashtagPill key={h} tag={h} t={t} onClick={() => onPick(h)} />)}
+        {tags.map((h) => <HashtagPill key={h} tag={h} t={t} onClick={() => onPick(h)} />)}
       </div>
     </div>
   );
@@ -875,6 +931,8 @@ function PostMedia({ t, post, onDoubleLike }) {
   };
   const a = byId(post.authorId);
   const grad = `linear-gradient(150deg, ${collegeColor(a.college)}77, ${TOKENS.primary2}55)`;
+  const firstMedia = post.media?.[0];
+  const mediaSrc = cmApi.resolveMediaUrl(firstMedia?.url);
   if (post.type === "text") {
     return (
       <div onClick={handleTap} style={{ position: "relative", padding: "26px 20px", borderRadius: 16, background: grad, minHeight: 110, display: "flex", alignItems: "center", cursor: "pointer" }}>
@@ -888,10 +946,10 @@ function PostMedia({ t, post, onDoubleLike }) {
       {post.type === "carousel" && (
         <span style={{ position: "absolute", top: 10, right: 10, background: "rgba(0,0,0,0.45)", color: "#fff", fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 999 }}>1 / {post.images}</span>
       )}
+      {mediaSrc ? <img src={mediaSrc} alt={post.caption || "Campus post"} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <ImageIcon size={38} color="rgba(255,255,255,0.55)" />}
       {(post.type === "club" || post.type === "event") && (
-        <Badge color={TOKENS.amber} style={{ position: "absolute", top: 10, left: 10 }}>{post.type === "club" ? post.club : post.event}</Badge>
+        <Badge color={TOKENS.amber} style={{ position: "absolute", top: 10, left: 10 }}>{post.type.toUpperCase()}</Badge>
       )}
-      <ImageIcon size={38} color="rgba(255,255,255,0.55)" />
       {post.type === "carousel" && (
         <div style={{ position: "absolute", bottom: 12, left: "50%", transform: "translateX(-50%)", display: "flex", gap: 5 }}>
           {Array.from({ length: post.images }).map((_, i) => (
@@ -914,7 +972,7 @@ function PostCard({ t, post, following, onToggleFollow, onLike, onSave, onOpenCo
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
             <span style={{ fontWeight: 700, fontSize: 14, color: t.text }}>{a.name}</span>
-            <CheckCircle2 size={13} color={TOKENS.super} />
+            {a.verificationStatus === "college_verified" && <CheckCircle2 size={13} color={TOKENS.super} aria-label="College verified" />}
           </div>
           <div style={{ fontSize: 11.5, color: t.textMuted }}>{a.college} • {a.branch} • {a.year} • {post.createdAt}</div>
         </div>
@@ -956,13 +1014,32 @@ function PostCard({ t, post, following, onToggleFollow, onLike, onSave, onOpenCo
   );
 }
 
-function CommentsSheet({ t, post, profile, onClose, onAddComment }) {
+function CommentsSheet({ t, post, profile, authUser, onClose, onAddComment }) {
   const [draft, setDraft] = useState("");
+  const [comments, setComments] = useState(post?.comments || []);
+  const [loading, setLoading] = useState(!!authUser);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!authUser || !post?.id) return;
+    cmApi.fetchComments(post.id)
+      .then((items) => { setComments((items || []).map(adaptApiComment)); setError(""); })
+      .catch((err) => setError(err.response?.data?.message || "Unable to load comments."))
+      .finally(() => setLoading(false));
+  }, [authUser, post?.id]);
+
   if (!post) return null;
-  const submit = () => {
+  const submit = async () => {
     if (!draft.trim()) return;
-    onAddComment(post.id, draft.trim());
-    setDraft("");
+    const value = draft.trim();
+    setDraft(""); setError("");
+    try {
+      const comment = await onAddComment(post.id, value);
+      if (comment) setComments((items) => [...items, comment]);
+    } catch (err) {
+      setDraft(value);
+      setError(err.response?.data?.message || "Unable to add your comment.");
+    }
   };
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 90, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
@@ -973,14 +1050,15 @@ function CommentsSheet({ t, post, profile, onClose, onAddComment }) {
         display: "flex", flexDirection: "column", animation: "cmSheetUp .3s cubic-bezier(.2,.9,.3,1) both",
       }}>
         <div style={{ padding: "14px 18px", borderBottom: `1px solid ${t.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span className="cm-display" style={{ fontWeight: 700, fontSize: 15, color: t.text }}>Comments · {post.commentsCount}</span>
+          <span className="cm-display" style={{ fontWeight: 700, fontSize: 15, color: t.text }}>Comments · {Math.max(post.commentsCount, comments.length)}</span>
           <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: t.textFaint }}><X size={18} /></button>
         </div>
         <div style={{ flex: 1, overflowY: "auto", padding: 18, display: "flex", flexDirection: "column", gap: 16 }}>
-          {post.comments.length === 0 && (
+          {loading && <div style={{ textAlign: "center", color: t.textFaint, fontSize: 13, padding: "30px 0" }}>Loading comments...</div>}
+          {!loading && comments.length === 0 && (
             <div style={{ textAlign: "center", color: t.textFaint, fontSize: 13, padding: "30px 0" }}>No comments yet. Start the conversation.</div>
           )}
-          {post.comments.map((c) => {
+          {!loading && comments.map((c) => {
             const a = byId(c.authorId);
             return (
               <div key={c.id} style={{ display: "flex", gap: 10 }}>
@@ -988,16 +1066,13 @@ function CommentsSheet({ t, post, profile, onClose, onAddComment }) {
                 <div>
                   <div style={{ fontSize: 12.5 }}><strong style={{ color: t.text }}>{a.name}</strong> <span style={{ color: t.textFaint }}>· {a.college}</span></div>
                   <div style={{ fontSize: 13, color: t.text, marginTop: 2 }}>{c.text}</div>
-                  <div style={{ display: "flex", gap: 12, marginTop: 4 }}>
-                    <span style={{ fontSize: 11, color: t.textFaint }}>{c.time}</span>
-                    <button style={{ background: "none", border: "none", cursor: "pointer", fontSize: 11, color: t.textFaint, fontWeight: 700 }}>Like</button>
-                    <button style={{ background: "none", border: "none", cursor: "pointer", fontSize: 11, color: t.textFaint, fontWeight: 700 }}>Reply</button>
-                  </div>
+                  <div style={{ fontSize: 11, color: t.textFaint, marginTop: 4 }}>{c.time}</div>
                 </div>
               </div>
             );
           })}
         </div>
+        {error && <div style={{ color: TOKENS.like, fontSize: 12, padding: "0 14px 8px" }}>{error}</div>}
         <div style={{ padding: 14, borderTop: `1px solid ${t.border}`, display: "flex", gap: 10 }}>
           <Avatar name={profile.name || "You"} color={TOKENS.primary} size={32} />
           <input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => e.key === "Enter" && submit()}
@@ -1012,6 +1087,9 @@ function CommentsSheet({ t, post, profile, onClose, onAddComment }) {
 function CreateSheet({ t, onClose, onPublish }) {
   const [mode, setMode] = useState(null); // null | photo | text | reel | event | club
   const [caption, setCaption] = useState("");
+  const [file, setFile] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
 
   const options = [
     { key: "photo", label: "Photo Post", icon: ImageIcon, color: TOKENS.primary },
@@ -1021,10 +1099,18 @@ function CreateSheet({ t, onClose, onPublish }) {
     { key: "club", label: "Club Post", icon: Users, color: TOKENS.primary2 },
   ];
 
-  const publish = () => {
+  const publish = async () => {
     if (!caption.trim()) return;
-    onPublish({ type: mode === "reel" ? "text" : mode, caption: caption.trim() });
-    setCaption(""); setMode(null); onClose();
+    if (mode !== "text" && !file) { setError("Select a media file before publishing."); return; }
+    setBusy(true); setError("");
+    try {
+      await onPublish({ type: mode, caption: caption.trim(), file });
+      setCaption(""); setFile(null); setMode(null); onClose();
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to publish right now. Please try again.");
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -1060,17 +1146,20 @@ function CreateSheet({ t, onClose, onPublish }) {
               <h3 className="cm-display" style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>New {options.find((o) => o.key === mode)?.label}</h3>
             </div>
             {mode !== "text" && (
-              <div style={{
+              <label style={{
                 height: 150, borderRadius: 14, border: `1.5px dashed ${t.border}`, display: "flex", flexDirection: "column",
-                alignItems: "center", justifyContent: "center", gap: 6, marginBottom: 14, color: t.textFaint,
+                alignItems: "center", justifyContent: "center", gap: 6, marginBottom: 14, color: t.textFaint, cursor: "pointer",
               }}>
                 {mode === "reel" ? <Film size={22} /> : <ImageIcon size={22} />}
-                <span style={{ fontSize: 12.5 }}>{mode === "reel" ? "Upload a video (demo — no real upload)" : "Select image (demo — no real upload)"}</span>
-              </div>
+                <span style={{ fontSize: 12.5 }}>{file?.name || (mode === "reel" ? "Select a video" : "Select an image")}</span>
+                <input type="file" accept={mode === "reel" ? "video/mp4,video/webm" : "image/jpeg,image/png,image/webp"}
+                  onChange={(e) => setFile(e.target.files?.[0] || null)} style={{ display: "none" }} />
+              </label>
             )}
             <textarea value={caption} onChange={(e) => setCaption(e.target.value)} placeholder="Write a caption..." rows={3}
               style={{ width: "100%", resize: "none", borderRadius: 12, padding: 12, fontSize: 13.5, background: "transparent", color: t.text, border: `1.5px solid ${t.border}`, fontFamily: "Inter, sans-serif" }} />
-            <PrimaryButton onClick={publish} style={{ width: "100%", marginTop: 14, justifyContent: "center" }} icon={ArrowRight}>Post to CampusMate</PrimaryButton>
+            {error && <div style={{ color: TOKENS.like, fontSize: 12, marginTop: 9 }}>{error}</div>}
+            <PrimaryButton onClick={publish} disabled={busy} style={{ width: "100%", marginTop: 14, justifyContent: "center", opacity: busy ? .65 : 1 }} icon={busy ? Loader2 : ArrowRight}>{busy ? "Publishing..." : "Post to CampusMate"}</PrimaryButton>
           </>
         )}
       </div>
@@ -1078,17 +1167,49 @@ function CreateSheet({ t, onClose, onPublish }) {
   );
 }
 
-function NotificationsPanel({ t, onClose }) {
+function NotificationsPanel({ t, onClose, authUser }) {
+  const [items, setItems] = useState(authUser ? [] : SOCIAL_NOTIFS);
+  const [loading, setLoading] = useState(!!authUser);
+
+  useEffect(() => {
+    if (!authUser) return;
+    cmApi.fetchNotifications()
+      .then((notifications) => setItems(notifications || []))
+      .catch(() => setItems([]))
+      .finally(() => setLoading(false));
+  }, [authUser]);
+
+  const present = (notification) => {
+    if (!authUser) return notification;
+    const actor = notification.actor?.name || "Someone";
+    const details = {
+      like_post: [Heart, TOKENS.like, `${actor} liked your post`],
+      like_reel: [Heart, TOKENS.like, `${actor} liked your reel`],
+      comment_post: [MessageCircle, TOKENS.super, `${actor} commented on your post`],
+      comment_reel: [MessageCircle, TOKENS.super, `${actor} commented on your reel`],
+      reply_comment: [MessageCircle, TOKENS.super, `${actor} replied to your comment`],
+      follow: [UserPlus, TOKENS.primary, `${actor} started following you`],
+      connection_request: [Users, TOKENS.primary, `${actor} sent a connection request`],
+      connection_accepted: [UserCheck, TOKENS.primary, `${actor} accepted your connection request`],
+      match: [Sparkles, TOKENS.amber, `You connected with ${actor}`],
+      event_reminder: [Calendar, TOKENS.primary2, "You have an upcoming event"],
+      club_invite: [Users, TOKENS.primary2, `${actor} invited you to a club`],
+    }[notification.type] || [Bell, TOKENS.primary, "You have a new CampusMate notification"];
+    return { id: notification._id, icon: details[0], color: details[1], text: details[2], time: timeAgo(notification.createdAt) };
+  };
+
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 90 }} onClick={onClose}>
-      <div onClick={(e) => e.stopPropagation()} style={{
+      <div className="cm-notifications-panel" onClick={(e) => e.stopPropagation()} style={{
         position: "absolute", top: 66, right: 20, width: 320, maxWidth: "88vw",
         background: t.bg2, border: `1px solid ${t.border}`, borderRadius: 18, overflow: "hidden",
         boxShadow: "0 20px 50px -15px rgba(0,0,0,0.4)", animation: "cmPop .2s ease both",
       }}>
         <div style={{ padding: "14px 16px", borderBottom: `1px solid ${t.border}`, fontWeight: 700, fontSize: 14, color: t.text }}>Notifications</div>
         <div style={{ maxHeight: 340, overflowY: "auto" }}>
-          {SOCIAL_NOTIFS.map((n) => (
+          {loading && <div style={{ padding: 24, color: t.textMuted, textAlign: "center", fontSize: 12.5 }}>Loading notifications...</div>}
+          {!loading && items.length === 0 && <div style={{ padding: 24, color: t.textMuted, textAlign: "center", fontSize: 12.5 }}>No notifications yet.</div>}
+          {!loading && items.map(present).map((n) => (
             <div key={n.id} style={{ display: "flex", gap: 10, alignItems: "flex-start", padding: "11px 16px", borderBottom: `1px solid ${t.border}` }}>
               <div style={{ width: 30, height: 30, borderRadius: 9, background: `${n.color}22`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                 <n.icon size={14} color={n.color} />
@@ -1111,32 +1232,40 @@ function NotificationsPanel({ t, onClose }) {
 
 const NAV_ITEMS = [
   { key: "home", label: "Home", icon: Home },
-  { key: "explore", label: "Explore", icon: Users },
+  { key: "explore", label: "Explore", icon: Compass },
   { key: "messages", label: "Messages", icon: MessageCircle },
   { key: "profile", label: "Profile", icon: User },
 ];
 
 const SIDEBAR_ITEMS = [
   { key: "home", label: "Home", icon: Home },
-  { key: "discover", label: "Discover", icon: Compass },
+  { key: "discover", label: "Matching", icon: Heart },
   { key: "explore", label: "Explore", icon: Users },
   { key: "messages", label: "Messages", icon: MessageCircle },
   { key: "profile", label: "Profile", icon: User },
 ];
 
-function Shell({ t, dark, setDark, tab, setTab, children, unread, onCreate, connectionStatus }) {
+function Shell({ t, dark, setDark, tab, setTab, children, unread, onCreate, connectionStatus, onBrandClick }) {
   return (
-    <div style={{ minHeight: "100vh", background: t.bg, color: t.text, display: "flex" }}>
+    <div className="cm-app-shell" style={{ minHeight: "100vh", background: t.bg, color: t.text, display: "flex" }}>
       {/* desktop sidebar */}
       <div className="cm-sidebar" style={{
         width: 220, borderRight: `1px solid ${t.border}`, padding: "22px 14px",
         display: "flex", flexDirection: "column", gap: 4, flexShrink: 0,
       }}>
-        <div style={{ padding: "0 8px 10px" }}><Logo t={t} /></div>
+        <button
+          type="button"
+          onClick={onBrandClick}
+          aria-label="Open CampusMate home page"
+          title="Open CampusMate home page"
+          style={{ padding: "0 8px 10px", border: "none", background: "transparent", cursor: "pointer", textAlign: "left", width: "fit-content" }}
+        >
+          <Logo t={t} />
+        </button>
         {connectionStatus && (
           <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "0 8px 14px", fontSize: 10.5, fontWeight: 700, color: t.textFaint }}>
             <span style={{ width: 6, height: 6, borderRadius: "50%", background: connectionStatus === "online" ? TOKENS.super : TOKENS.amber }} />
-            {connectionStatus === "online" ? "CONNECTED" : "DEMO MODE — LOCAL DATA"}
+            {connectionStatus === "online" ? "CONNECTED" : "SERVICE OFFLINE"}
           </div>
         )}
         <PrimaryButton onClick={onCreate} icon={Plus} style={{ margin: "0 4px 14px", justifyContent: "center" }}>Create</PrimaryButton>
@@ -1168,7 +1297,8 @@ function Shell({ t, dark, setDark, tab, setTab, children, unread, onCreate, conn
         </div>
       </div>
 
-      <div style={{ flex: 1, minWidth: 0, paddingBottom: 76 }}>
+      <div className="cm-app-content" style={{ flex: 1, minWidth: 0, paddingBottom: 76 }}>
+        {tab === "profile" && <div className="cm-profile-theme"><button type="button" onClick={() => setDark(!dark)} aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}>{dark ? <Sun size={17} /> : <Moon size={17} />}<span>{dark ? "Light mode" : "Dark mode"}</span></button></div>}
         {children}
       </div>
 
@@ -1181,7 +1311,7 @@ function Shell({ t, dark, setDark, tab, setTab, children, unread, onCreate, conn
         {NAV_ITEMS.slice(0, 2).map((it) => {
           const active = tab === it.key;
           return (
-            <button key={it.key} onClick={() => setTab(it.key)} style={{
+            <button className="cm-mobile-nav-item" key={it.key} onClick={() => setTab(it.key)} style={{
               display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
               background: "transparent", border: "none", cursor: "pointer", padding: 6,
               color: active ? TOKENS.primary : t.textFaint, position: "relative",
@@ -1191,7 +1321,7 @@ function Shell({ t, dark, setDark, tab, setTab, children, unread, onCreate, conn
             </button>
           );
         })}
-        <button onClick={onCreate} style={{
+        <button className="cm-mobile-create" aria-label="Create" onClick={onCreate} style={{
           width: 46, height: 46, borderRadius: 16, border: "none", cursor: "pointer",
           background: `linear-gradient(135deg, ${TOKENS.primary}, ${TOKENS.primary2})`, color: "#fff",
           display: "flex", alignItems: "center", justifyContent: "center", marginTop: -18,
@@ -1200,7 +1330,7 @@ function Shell({ t, dark, setDark, tab, setTab, children, unread, onCreate, conn
         {NAV_ITEMS.slice(2).map((it) => {
           const active = tab === it.key;
           return (
-            <button key={it.key} onClick={() => setTab(it.key)} style={{
+            <button className="cm-mobile-nav-item" key={it.key} onClick={() => setTab(it.key)} style={{
               display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
               background: "transparent", border: "none", cursor: "pointer", padding: 6,
               color: active ? TOKENS.primary : t.textFaint, position: "relative",
@@ -1215,27 +1345,24 @@ function Shell({ t, dark, setDark, tab, setTab, children, unread, onCreate, conn
         })}
       </div>
 
-      <style>{`
-        @media (max-width: 860px) {
-          .cm-sidebar { display: none; }
-          .cm-bottomnav { display: flex !important; }
-        }
-      `}</style>
     </div>
   );
 }
 
-function TopBar({ t, title, subtitle, onBell }) {
+function TopBar({ t, title, subtitle, onBell, onBrandClick }) {
   return (
-    <div style={{ padding: "22px 24px 6px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-      <div>
-        <h1 className="cm-display" style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>{title}</h1>
-        {subtitle && <p style={{ fontSize: 13, color: t.textMuted, margin: "4px 0 0" }}>{subtitle}</p>}
+    <div className="cm-topbar" style={{ padding: "22px 24px 6px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+      <div className="cm-topbar-main">
+        {onBrandClick && <button className="cm-mobile-brand" type="button" onClick={onBrandClick} aria-label="Open CampusMate cinematic page"><Logo t={t} size={22} /></button>}
+        <div>
+          <h1 className="cm-display" style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>{title}</h1>
+          {subtitle && <p style={{ fontSize: 13, color: t.textMuted, margin: "4px 0 0" }}>{subtitle}</p>}
+        </div>
       </div>
-      <button onClick={onBell} style={{ width: 38, height: 38, borderRadius: 12, border: `1px solid ${t.border}`, background: t.surface, display: "flex", alignItems: "center", justifyContent: "center", position: "relative", cursor: "pointer" }}>
+      {onBell && <button onClick={onBell} style={{ width: 38, height: 38, borderRadius: 12, border: `1px solid ${t.border}`, background: t.surface, display: "flex", alignItems: "center", justifyContent: "center", position: "relative", cursor: "pointer" }}>
         <Bell size={16} color={t.text} />
         <span style={{ position: "absolute", top: -3, right: -3, width: 8, height: 8, borderRadius: "50%", background: TOKENS.like, border: `2px solid ${t.bg}` }} />
-      </button>
+      </button>}
     </div>
   );
 }
@@ -1249,7 +1376,6 @@ const FEED_FILTERS = ["For You", "Following", "GGITS", "GGCT", "GGCE"];
 function AnnouncementsRow({ t }) {
   const announcements = [
     { icon: GraduationCap, text: "CampusMate now works for any college — search for yours or add it during signup.", color: TOKENS.primary },
-    { icon: Users, text: "Networking, study partners, and hackathon teammates — dating is just one of many reasons to connect.", color: TOKENS.amber },
   ];
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8, margin: "16px 0" }}>
@@ -1263,24 +1389,23 @@ function AnnouncementsRow({ t }) {
   );
 }
 
-function Feed({ t, profile, matches, posts, following, onToggleFollow, onLike, onSave, onOpenComments,
-                onOpenStory, onBell, setTab, onGoDiscover }) {
+function Feed({ t, profile, authUser, matches, posts, following, students, clubs, events, onToggleFollow, onLike, onSave, onOpenComments,
+                onOpenStory, onBell, onBrandClick, setTab, onGoDiscover, onCreateStory }) {
   const stats = [
     { icon: Heart, label: "Matches", value: matches.length, color: TOKENS.like },
-    { icon: MessageCircle, label: "Messages", value: matches.length ? matches.length + 3 : 0, color: TOKENS.super },
-    { icon: Users, label: "Connections", value: following.length, color: TOKENS.primary },
-    { icon: Calendar, label: "Events", value: 4, color: TOKENS.amber },
+    { icon: MessageCircle, label: "Chats", value: matches.length, color: TOKENS.super },
+    { icon: Users, label: "Following", value: following.length, color: TOKENS.primary },
   ];
 
   return (
     <div>
-      <TopBar t={t} title={`Good morning, ${profile.name?.split(" ")[0] || "there"} 👋`} subtitle="Your campus. Your community." onBell={onBell} />
-      <div style={{ padding: "6px 24px" }}>
-        <StoriesRow t={t} profile={profile} onOpen={onOpenStory} />
+      <TopBar t={t} title={`Good morning, ${profile.name?.split(" ")[0] || "there"} 👋`} subtitle="Your campus. Your community." onBell={onBell} onBrandClick={onBrandClick} />
+      <div className="cm-page-gutter cm-home-page">
+        {authUser ? <NativeStories me={authUser} t={t} onCreate={onCreateStory} /> : <StoriesRow t={t} profile={profile} onOpen={onOpenStory} />}
 
         <AnnouncementsRow t={t} />
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px,1fr))", gap: 10, margin: "20px 0" }}>
+        <div className="cm-home-stats">
           {stats.map((s, i) => (
             <GlassCard key={i} t={t} style={{ padding: 14, animation: `cmFadeUp .4s ease ${i * 0.06}s both` }}>
               <div style={{ width: 26, height: 26, borderRadius: 8, background: `${s.color}22`, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 8 }}>
@@ -1308,7 +1433,7 @@ function Feed({ t, profile, matches, posts, following, onToggleFollow, onLike, o
           <button onClick={() => setTab("explore")} style={{ background: "none", border: "none", color: TOKENS.primary, fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>See all</button>
         </div>
         <div style={{ display: "flex", gap: 12, overflowX: "auto", paddingBottom: 8, marginTop: 10 }}>
-          {STUDENTS.slice(0, 6).map((s) => (
+          {students.slice(0, 6).map((s) => (
             <GlassCard key={s.id} t={t} style={{ padding: 14, minWidth: 150, flexShrink: 0, textAlign: "center" }}>
               <div style={{ display: "flex", justifyContent: "center" }}><Avatar name={s.name} color={collegeColor(s.college)} size={48} /></div>
               <div style={{ fontWeight: 700, fontSize: 12.5, color: t.text, marginTop: 8 }}>{s.name}</div>
@@ -1321,6 +1446,7 @@ function Feed({ t, profile, matches, posts, following, onToggleFollow, onLike, o
               }}>{following.includes(s.id) ? "Following" : "Follow"}</button>
             </GlassCard>
           ))}
+          {students.length === 0 && <p style={{ color: t.textMuted, fontSize: 12.5 }}>No student recommendations yet.</p>}
         </div>
 
         <div style={{ marginTop: 22, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -1328,7 +1454,8 @@ function Feed({ t, profile, matches, posts, following, onToggleFollow, onLike, o
           <button onClick={() => setTab("explore")} style={{ background: "none", border: "none", color: TOKENS.primary, fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>See all</button>
         </div>
         <div style={{ display: "flex", gap: 12, overflowX: "auto", paddingBottom: 8, marginTop: 10 }}>
-          {EVENTS.slice(0, 4).map((e) => <EventCard key={e.id} t={t} e={e} compact />)}
+          {events.slice(0, 4).map((e) => <EventCard key={e.id} t={t} e={e} compact />)}
+          {events.length === 0 && <p style={{ color: t.textMuted, fontSize: 12.5 }}>No upcoming events yet.</p>}
         </div>
 
         <div style={{ marginTop: 22, marginBottom: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -1336,7 +1463,7 @@ function Feed({ t, profile, matches, posts, following, onToggleFollow, onLike, o
           <button onClick={() => setTab("explore")} style={{ background: "none", border: "none", color: TOKENS.primary, fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>See all</button>
         </div>
         <div style={{ display: "flex", gap: 12, overflowX: "auto", paddingBottom: 20 }}>
-          {CLUBS.slice(0, 4).map((c) => (
+          {clubs.slice(0, 4).map((c) => (
             <GlassCard key={c.id} t={t} style={{ padding: 14, minWidth: 170, flexShrink: 0 }}>
               <div style={{ width: 32, height: 32, borderRadius: 9, background: `${TOKENS.primary}22`, display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <c.icon size={15} color={TOKENS.primary} />
@@ -1345,6 +1472,7 @@ function Feed({ t, profile, matches, posts, following, onToggleFollow, onLike, o
               <Badge color={collegeColor(c.college)} style={{ marginTop: 6 }}>{c.college}</Badge>
             </GlassCard>
           ))}
+          {clubs.length === 0 && <p style={{ color: t.textMuted, fontSize: 12.5 }}>No campus communities yet.</p>}
         </div>
       </div>
     </div>
@@ -1431,14 +1559,14 @@ function SwipeCard({ t, student, onDecision, isTop, dragState, setDragState }) {
         background: "linear-gradient(0deg, rgba(0,0,0,0.75), transparent)",
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-          <span style={{ color: "#fff", fontWeight: 700, fontSize: 21, fontFamily: "Space Grotesk, sans-serif" }}>{student.name}, {student.age}</span>
-          <CheckCircle2 size={16} color={TOKENS.super} />
+          <span style={{ color: "#fff", fontWeight: 700, fontSize: 21, fontFamily: "Space Grotesk, sans-serif" }}>{student.name}{student.age ? `, ${student.age}` : ""}</span>
+          {student.verificationStatus === "college_verified" && <CheckCircle2 size={16} color={TOKENS.super} aria-label="College verified" />}
         </div>
         <div style={{ color: "rgba(255,255,255,0.85)", fontSize: 13, marginBottom: 6 }}>{student.branch} • {student.year}</div>
         <Badge color={collegeColor(student.college)}>{student.college}</Badge>
         <p style={{ color: "rgba(255,255,255,0.9)", fontSize: 13, marginTop: 10, lineHeight: 1.5 }}>{student.bio}</p>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
-          {student.interests.map((i) => (
+          {(student.interests || []).map((i) => (
             <span key={i} style={{ fontSize: 11, fontWeight: 600, color: "#fff", background: "rgba(255,255,255,0.18)", padding: "3px 9px", borderRadius: 999, backdropFilter: "blur(6px)" }}>{i}</span>
           ))}
         </div>
@@ -1450,64 +1578,110 @@ function SwipeCard({ t, student, onDecision, isTop, dragState, setDragState }) {
 function Discover({ t, profile, onMatch, onServerMatch, authUser }) {
   const [filter, setFilter] = useState("All");
   const [liveCandidates, setLiveCandidates] = useState(null);
+  const [loading, setLoading] = useState(Boolean(authUser));
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const pool = useMemo(() => {
-    if (liveCandidates) return liveCandidates;
+    if (authUser) return liveCandidates || [];
     return filter === "All" ? STUDENTS : STUDENTS.filter((s) => s.college === filter);
-  }, [filter, liveCandidates]);
+  }, [authUser, filter, liveCandidates]);
   const [index, setIndex] = useState(0);
   const [dragState, setDragState] = useState({ x: 0, y: 0 });
-  const [flash, setFlash] = useState(null);
 
-  useEffect(() => setIndex(0), [filter]);
+  useEffect(() => {
+    setIndex(0);
+    setNotice("");
+  }, [filter]);
 
-  // Live candidates from the real backend (people who haven't been swiped on
-  // yet), falling back to the local demo pool on any failure so swiping
-  // always works even without a backend running.
+  useEffect(() => { if (error) showToast(error, "error"); }, [error]);
+  useEffect(() => { if (notice) showToast(notice, "success"); }, [notice]);
+
+  // Authenticated discovery is server-owned; demo candidates are guest-only.
   useEffect(() => {
     if (!authUser) return;
+    let active = true;
+    setLoading(true);
+    setError("");
     cmApi.fetchDiscoverCandidates(filter === "All" ? undefined : filter)
-      .then((list) => setLiveCandidates((list || []).map(adaptApiStudent)))
-      .catch(() => setLiveCandidates(null));
+      .then((list) => {
+        if (active) setLiveCandidates((list || []).map(adaptApiStudent));
+      })
+      .catch((requestError) => {
+        if (!active) return;
+        setLiveCandidates([]);
+        setError(requestError.response?.data?.message || "Could not load students. Please retry.");
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => { active = false; };
   }, [authUser, filter]);
 
   const current = pool[index];
   const next = pool[index + 1];
 
   const decide = async (type) => {
-    if (!current) return;
-    setDragState({ x: type === "pass" ? -600 : type === "like" ? 600 : 0, y: type === "super" ? -700 : dragState.y });
-    setFlash(type);
+    if (!current || busy) return;
+    setBusy(true);
+    setError("");
+    setNotice("");
+    setDragState({ x: type === "pass" ? -600 : type === "like" ? 600 : 0, y: type === "connect" ? -700 : dragState.y });
 
     if (authUser && liveCandidates) {
-      // Real path: record the swipe with the backend and only show the
-      // match animation if the server confirms it was mutual.
-      const apiAction = type === "super" ? "super_like" : type === "like" ? "like" : "pass";
+      const apiAction = type === "connect" ? "connect" : type === "like" ? "like" : "pass";
       try {
         const result = await cmApi.swipe(current.id, apiAction);
-        if (result?.matched) onServerMatch(current);
-      } catch (_) { /* best-effort — swiping still advances the deck locally */ }
+        if (result?.matched) onServerMatch(current, result.match);
+        else if (type !== "pass") setNotice(`${type === "connect" ? "Connect request" : "Like"} sent to ${current.name}. You'll match when they respond.`);
+      } catch (requestError) {
+        setDragState({ x: 0, y: 0 });
+        setError(requestError.response?.data?.message || "Swipe could not be saved. Check your connection and try again.");
+        setBusy(false);
+        return;
+      }
     } else if (type !== "pass" && current.matchesBack) {
-      // Demo/offline path: use the local matchesBack flag on seed data.
       onMatch(current);
     }
 
     setTimeout(() => {
       setIndex((i) => i + 1);
       setDragState({ x: 0, y: 0 });
-      setFlash(null);
+      setBusy(false);
     }, 260);
   };
 
+  const showProfilesAgain = async () => {
+    if (!authUser || busy) {
+      setIndex(0);
+      return;
+    }
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const result = await cmApi.resetReviewableSwipes();
+      const list = await cmApi.fetchDiscoverCandidates(filter === "All" ? undefined : filter);
+      setLiveCandidates((list || []).map(adaptApiStudent));
+      setIndex(0);
+      setNotice(result.resetCount ? "Profiles are available again. Your existing matches were kept." : "No profiles can be reset yet.");
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || "Could not reload profiles. Please retry.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const compat = (s) => {
-    const shared = s.interests.filter((i) => profile.interests.includes(i)).length;
+    const shared = (s.interests || []).filter((i) => (profile.interests || []).includes(i)).length;
     const base = 46 + shared * 12 + (s.college === profile.college ? 8 : 0);
     return Math.min(97, base);
   };
 
   return (
     <div>
-      <TopBar t={t} title="Discover" subtitle="Find friends, teammates & study partners across campus" />
-      <div style={{ padding: "10px 24px" }}>
+      <TopBar t={t} title="Matching" subtitle="Find friends, teammates & study partners across campus" />
+      <div className="cm-page-gutter cm-discover-page">
         <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 12 }}>
           <CollegePill code="All" active={filter === "All"} onClick={() => setFilter("All")} />
           {COLLEGES.map((c) => (
@@ -1515,13 +1689,16 @@ function Discover({ t, profile, onMatch, onServerMatch, authUser }) {
           ))}
         </div>
 
-        <div style={{ position: "relative", height: 520, maxWidth: 380, margin: "0 auto" }}>
-          {!current && (
+        <div className="cm-discover-deck" style={{ position: "relative", height: 520, maxWidth: 380, margin: "0 auto" }}>
+          {loading && (
+            <div className="cm-feature-loading">Loading students…</div>
+          )}
+          {!loading && !current && (
             <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", gap: 8, animation: "cmFadeUp .4s ease both" }}>
               <span style={{ fontSize: 40 }}>❤️</span>
-              <div style={{ fontWeight: 700, fontSize: 16, color: t.text }}>No matches yet.</div>
-              <div style={{ fontSize: 13, color: t.textMuted }}>Keep exploring your campus!</div>
-              <GhostButton t={t} onClick={() => setIndex(0)} style={{ marginTop: 8 }}>Start over</GhostButton>
+              <div style={{ fontWeight: 700, fontSize: 16, color: t.text }}>No new profiles right now.</div>
+              <div style={{ fontSize: 13, color: t.textMuted }}>You have already reviewed every available student.</div>
+              <GhostButton t={t} disabled={busy} onClick={showProfilesAgain} style={{ marginTop: 8 }}>{busy ? "Loading…" : "Show profiles again"}</GhostButton>
             </div>
           )}
           {next && <SwipeCard t={t} student={next} isTop={false} dragState={{ x: 0, y: 0 }} setDragState={() => {}} onDecision={() => {}} />}
@@ -1541,10 +1718,10 @@ function Discover({ t, profile, onMatch, onServerMatch, authUser }) {
               </div>
             </div>
 
-            <div style={{ display: "flex", justifyContent: "center", gap: 18, marginTop: 20 }}>
-              <RoundBtn color={TOKENS.like} icon={X} onClick={() => decide("pass")} />
-              <RoundBtn color={TOKENS.amber} icon={Star} onClick={() => decide("super")} size={46} />
-              <RoundBtn color={TOKENS.super} icon={Heart} onClick={() => decide("like")} />
+            <div className="cm-match-actions" style={{ display: "flex", justifyContent: "center", gap: 18, marginTop: 20, "--cm-action-bg": t.bg2, "--cm-action-border": t.border }}>
+              <RoundBtn label="Pass" disabled={busy} color={TOKENS.like} icon={X} onClick={() => decide("pass")} />
+              <RoundBtn label="Connect" disabled={busy} color={TOKENS.amber} icon={UserPlus} onClick={() => decide("connect")} size={46} />
+              <RoundBtn label="Like" disabled={busy} color={TOKENS.super} icon={Heart} onClick={() => decide("like")} />
             </div>
           </>
         )}
@@ -1553,18 +1730,21 @@ function Discover({ t, profile, onMatch, onServerMatch, authUser }) {
   );
 }
 
-function RoundBtn({ color, icon: Icon, onClick, size = 56 }) {
+function RoundBtn({ color, icon: Icon, onClick, size = 56, disabled = false, label }) {
   return (
-    <button onClick={onClick} style={{
-      width: size, height: size, borderRadius: "50%", border: `2px solid ${color}`,
-      background: "transparent", display: "flex", alignItems: "center", justifyContent: "center",
-      cursor: "pointer", color, transition: "transform .12s ease",
-    }}
-      onMouseDown={(e) => (e.currentTarget.style.transform = "scale(.9)")}
-      onMouseUp={(e) => (e.currentTarget.style.transform = "scale(1)")}
-    >
-      <Icon size={size * 0.4} fill={Icon === Heart ? color : "none"} />
-    </button>
+    <div className="cm-match-action">
+      <button aria-label={label} title={label} disabled={disabled} onClick={onClick} style={{
+        width: size, height: size, borderRadius: "50%", border: `2px solid ${color}`,
+        background: "transparent", display: "flex", alignItems: "center", justifyContent: "center",
+        cursor: disabled ? "wait" : "pointer", color, transition: "transform .12s ease", opacity: disabled ? 0.55 : 1,
+      }}
+        onMouseDown={(e) => (e.currentTarget.style.transform = "scale(.9)")}
+        onMouseUp={(e) => (e.currentTarget.style.transform = "scale(1)")}
+      >
+        <Icon size={size * 0.4} fill={Icon === Heart ? color : "none"} />
+      </button>
+      <span style={{ color }}>{label}</span>
+    </div>
   );
 }
 
@@ -1637,7 +1817,7 @@ function Avatar({ name, color, size = 68, photoUrl }) {
    EXPLORE — students / clubs / events
    ============================================================ */
 
-function EventCard({ t, e, compact }) {
+function EventCard({ t, e, compact, onRegister }) {
   return (
     <GlassCard t={t} style={{ padding: 16, minWidth: compact ? 220 : "auto", flexShrink: 0 }}>
       <Badge color={collegeColor(e.college)}>{e.college}</Badge>
@@ -1645,13 +1825,37 @@ function EventCard({ t, e, compact }) {
       <div style={{ fontSize: 12.5, color: t.textMuted, marginTop: 4, display: "flex", gap: 10, flexWrap: "wrap" }}>
         <span>📅 {e.date}</span><span>⏰ {e.time}</span>
       </div>
-      <div style={{ fontSize: 11.5, color: t.textFaint, marginTop: 4 }}>{e.participants} participants (demo)</div>
+      <div style={{ fontSize: 11.5, color: t.textFaint, marginTop: 4 }}>{e.participants} participants{e.isDemo ? " (demo)" : ""}</div>
+      {onRegister && <button onClick={() => onRegister(e)} style={{ marginTop: 10, padding: 0, border: 0, background: "transparent", color: TOKENS.primary, fontWeight: 700, cursor: "pointer" }}>Register →</button>}
     </GlassCard>
   );
 }
 
+function CampusContributionSheet({ t, type, onClose, onCreated }) {
+  const isEvent = type === "event";
+  const [form, setForm] = useState({ title: "", description: "", date: "", venue: "" });
+  const [file, setFile] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const update = (key, value) => setForm(current => ({ ...current, [key]: value }));
+  const submit = async event => {
+    event.preventDefault(); setBusy(true); setError("");
+    const payload = new FormData();
+    payload.append(isEvent ? "title" : "name", form.title.trim());
+    payload.append("description", form.description.trim());
+    if (isEvent) { payload.append("date", form.date); payload.append("venue", form.venue.trim()); }
+    if (file) payload.append("image", file);
+    try {
+      onCreated(isEvent ? await cmApi.createEvent(payload) : await cmApi.createClub(payload));
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || `Could not create ${isEvent ? "event" : "community"}.`);
+    } finally { setBusy(false); }
+  };
+  return <div className="cm-native-modal"><form className="cm-media-composer" onSubmit={submit}><header><strong>{isEvent ? "Add upcoming event" : "Create campus community"}</strong><button type="button" onClick={onClose}><X/></button></header><input required minLength={3} maxLength={isEvent ? 100 : 80} style={inputStyle(t)} value={form.title} onChange={event => update("title", event.target.value)} placeholder={isEvent ? "Event title" : "Community name"}/><textarea maxLength={isEvent ? 1000 : 500} style={inputStyle(t)} value={form.description} onChange={event => update("description", event.target.value)} placeholder="Description"/>{isEvent && <><input required type="datetime-local" min={new Date(Date.now() + 60000).toISOString().slice(0, 16)} style={inputStyle(t)} value={form.date} onChange={event => update("date", event.target.value)}/><input maxLength={120} style={inputStyle(t)} value={form.venue} onChange={event => update("venue", event.target.value)} placeholder="Venue"/></>}<label style={{ fontSize: 12, color: t.textMuted }}>Optional cover image<input type="file" accept="image/jpeg,image/png,image/webp" onChange={event => setFile(event.target.files?.[0] || null)} style={{ ...inputStyle(t), marginTop: 6 }}/></label>{error && <div className="cm-inline-error" role="alert">{error}</div>}<PrimaryButton disabled={busy} style={{ justifyContent: "center" }}>{busy ? "Publishing…" : isEvent ? "Publish event" : "Create community"}</PrimaryButton></form></div>;
+}
+
 function Explore({ t, profile, posts, following, onToggleFollow, onLike, onSave, onOpenComments,
-                    reels, onLikeReel, onSaveReel, onOpenReelComments, onViewReel, authUser }) {
+                    reels, clubs, events, onLikeReel, onSaveReel, onOpenReelComments, onViewReel, authUser, onClubCreated, onEventCreated }) {
   const [tab, setTab] = useState("students");
   const [filter, setFilter] = useState("All");
   const [query, setQuery] = useState("");
@@ -1660,16 +1864,14 @@ function Explore({ t, profile, posts, following, onToggleFollow, onLike, onSave,
   const [postFilter, setPostFilter] = useState("For You");
   const [hashtagFocus, setHashtagFocus] = useState(null);
 
-  // Live-data layer: when signed in against a real backend, fetch actual
-  // feed/reels/student data per tab and adapt it into the same shape the
-  // (originally demo-only) card components already expect — see
-  // adaptApiPost/adaptApiReel/adaptApiStudent near the top of this file.
-  // Falls back to the local demo arrays (props/STUDENTS) on any failure,
-  // so this never blocks the UI even with no backend running.
+  // Authenticated tabs are server-owned; sample records are guest-only.
   const [livePosts, setLivePosts] = useState(null);
   const [liveReels, setLiveReels] = useState(null);
   const [liveStudents, setLiveStudents] = useState(null);
   const [loadingLive, setLoadingLive] = useState(false);
+  const [contributionType, setContributionType] = useState(null);
+  const [contributionNotice, setContributionNotice] = useState("");
+  useEffect(() => { if (contributionNotice) showToast(contributionNotice, contributionNotice.startsWith("Could not") ? "error" : "success"); }, [contributionNotice]);
 
   useEffect(() => {
     if (!authUser) return;
@@ -1677,47 +1879,51 @@ function Explore({ t, profile, posts, following, onToggleFollow, onLike, onSave,
       setLoadingLive(true);
       cmApi.fetchFeed(postFilter === "For You" ? undefined : postFilter, 1)
         .then((data) => setLivePosts((data.posts || []).map(adaptApiPost)))
-        .catch(() => setLivePosts(null))
+        .catch(() => setLivePosts([]))
         .finally(() => setLoadingLive(false));
     } else if (tab === "reels") {
       setLoadingLive(true);
       cmApi.fetchReels(filter === "All" ? undefined : filter, 1)
         .then((list) => setLiveReels((list || []).map(adaptApiReel)))
-        .catch(() => setLiveReels(null))
+        .catch(() => setLiveReels([]))
         .finally(() => setLoadingLive(false));
     } else if (tab === "students") {
       setLoadingLive(true);
       cmApi.api.get("/users", { params: { college: filter === "All" ? undefined : filter, q: query || undefined } })
         .then((r) => setLiveStudents((r.data.users || []).map(adaptApiStudent)))
-        .catch(() => setLiveStudents(null))
+        .catch(() => setLiveStudents([]))
         .finally(() => setLoadingLive(false));
     }
   }, [authUser, tab, postFilter, filter, query]);
 
-  const effectivePosts = livePosts ?? posts;
-  const effectiveReels = liveReels ?? reels;
-  const effectiveStudentsPool = liveStudents ?? STUDENTS;
+  const effectivePosts = authUser ? (livePosts || []) : posts;
+  const effectiveReels = authUser ? (liveReels || []) : reels;
+  const effectiveStudentsPool = authUser ? (liveStudents || []) : STUDENTS;
 
   const visiblePosts = useMemo(() => {
     let list = effectivePosts;
-    if (!livePosts) {
-      // client-side filtering only needed for the local demo fallback —
-      // live requests already asked the backend to filter server-side
+    if (!authUser) {
       if (postFilter === "Following") list = list.filter((p) => following.includes(p.authorId));
       else if (postFilter !== "For You") list = list.filter((p) => byId(p.authorId).college === postFilter);
     }
     if (hashtagFocus) list = list.filter((p) => p.hashtags.includes(hashtagFocus));
     return list;
-  }, [effectivePosts, livePosts, postFilter, following, hashtagFocus]);
+  }, [authUser, effectivePosts, postFilter, following, hashtagFocus]);
 
   const studentList = useMemo(() => {
-    let list = liveStudents ? effectiveStudentsPool : (filter === "All" ? STUDENTS : STUDENTS.filter((s) => s.college === filter));
-    if (!liveStudents && q) list = list.filter((s) => s.name.toLowerCase().includes(q) || s.branch.toLowerCase().includes(q) || s.interests.some((i) => i.toLowerCase().includes(q)));
+    let list = authUser ? effectiveStudentsPool : (filter === "All" ? STUDENTS : STUDENTS.filter((s) => s.college === filter));
+    if (!authUser && q) list = list.filter((s) => s.name.toLowerCase().includes(q) || s.branch.toLowerCase().includes(q) || s.interests.some((i) => i.toLowerCase().includes(q)));
     return list;
-  }, [filter, q, liveStudents, effectiveStudentsPool]);
-  const clubList = useMemo(() => q ? CLUBS.filter((c) => c.name.toLowerCase().includes(q)) : CLUBS, [q]);
-  const eventList = useMemo(() => q ? EVENTS.filter((e) => e.title.toLowerCase().includes(q)) : EVENTS, [q]);
-  const hashtagHits = useMemo(() => q ? HASHTAGS.filter((h) => h.toLowerCase().includes(q)) : [], [q]);
+  }, [authUser, filter, q, effectiveStudentsPool]);
+  const availableClubs = authUser ? clubs : CLUBS;
+  const availableEvents = authUser ? events : EVENTS;
+  const availableHashtags = useMemo(
+    () => authUser ? [...new Set(effectivePosts.flatMap((post) => post.hashtags || []))].slice(0, 10) : HASHTAGS,
+    [authUser, effectivePosts]
+  );
+  const clubList = useMemo(() => q ? availableClubs.filter((c) => c.name.toLowerCase().includes(q)) : availableClubs, [q, availableClubs]);
+  const eventList = useMemo(() => q ? availableEvents.filter((e) => e.title.toLowerCase().includes(q)) : availableEvents, [q, availableEvents]);
+  const hashtagHits = useMemo(() => q ? availableHashtags.filter((h) => h.toLowerCase().includes(q)) : [], [q, availableHashtags]);
   const list = studentList;
 
   const wrappedOnLike = (id) => {
@@ -1740,7 +1946,7 @@ function Explore({ t, profile, posts, following, onToggleFollow, onLike, onSave,
   return (
     <div>
       <TopBar t={t} title="Explore" subtitle="Posts, reels, students, clubs & events across every college" />
-      <div style={{ padding: "10px 24px" }}>
+      <div className="cm-page-gutter cm-explore-page">
         {authUser && (livePosts || liveReels || liveStudents || loadingLive) && (
           <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: t.textFaint, marginBottom: 8 }}>
             {loadingLive ? <Loader2 size={11} style={{ animation: "cmSpin 1s linear infinite" }} /> : <span style={{ width: 6, height: 6, borderRadius: "50%", background: TOKENS.super }} />}
@@ -1764,7 +1970,7 @@ function Explore({ t, profile, posts, following, onToggleFollow, onLike, onSave,
             {hashtagHits.map((h) => <HashtagPill key={h} tag={h} t={t} onClick={() => {}} />)}
           </div>
         )}
-        <div style={{ display: "flex", gap: 8, marginBottom: 16, overflowX: "auto" }}>
+        <div className="cm-scroll-row cm-explore-tabs" style={{ display: "flex", gap: 8, marginBottom: 16, overflowX: "auto" }}>
           {[
             { k: "students", label: "Students" },
             { k: "posts", label: "Posts" },
@@ -1783,7 +1989,7 @@ function Explore({ t, profile, posts, following, onToggleFollow, onLike, onSave,
 
         {tab === "posts" && (
           <div>
-            <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 12 }}>
+            <div className="cm-scroll-row" style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 12 }}>
               {FEED_FILTERS.map((f) => (
                 <button key={f} onClick={() => { setPostFilter(f); setHashtagFocus(null); }} style={{
                   padding: "8px 15px", borderRadius: 999, fontSize: 12.5, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap",
@@ -1793,7 +1999,7 @@ function Explore({ t, profile, posts, following, onToggleFollow, onLike, onSave,
                 }}>{f}</button>
               ))}
             </div>
-            <TrendingHashtags t={t} onPick={(h) => setHashtagFocus(hashtagFocus === h ? null : h)} />
+            <TrendingHashtags t={t} tags={availableHashtags} onPick={(h) => setHashtagFocus(hashtagFocus === h ? null : h)} />
             {hashtagFocus && (
               <div style={{ marginTop: 10, marginBottom: 4, fontSize: 12, color: t.textMuted }}>
                 Showing posts tagged <strong style={{ color: t.text }}>{hashtagFocus}</strong> ·{" "}
@@ -1815,18 +2021,17 @@ function Explore({ t, profile, posts, following, onToggleFollow, onLike, onSave,
           </div>
         )}
 
-        {tab === "reels" && (
+        {tab === "reels" && (authUser ? <NativeReels t={t}/> :
           <ReelsFeed t={t} reels={effectiveReels} onLike={wrappedOnLikeReel} onSave={wrappedOnSaveReel}
-            onOpenComments={onOpenReelComments} onView={onViewReel} />
-        )}
+            onOpenComments={onOpenReelComments} onView={onViewReel} />)}
 
         {tab === "students" && (
           <>
-            <div style={{ display: "flex", gap: 8, marginBottom: 14, overflowX: "auto" }}>
+            <div className="cm-scroll-row" style={{ display: "flex", gap: 8, marginBottom: 14, overflowX: "auto" }}>
               <CollegePill code="All" active={filter === "All"} onClick={() => setFilter("All")} />
               {COLLEGES.map((c) => <CollegePill key={c.code} code={c.code} active={filter === c.code} onClick={() => setFilter(c.code)} />)}
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px,1fr))", gap: 14 }}>
+            <div className="cm-explore-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px,1fr))", gap: 14 }}>
               {list.map((s) => (
                 <GlassCard key={s.id} t={t} style={{ padding: 16 }}>
                   <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
@@ -1845,7 +2050,9 @@ function Explore({ t, profile, posts, following, onToggleFollow, onLike, onSave,
         )}
 
         {tab === "clubs" && (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(230px,1fr))", gap: 14 }}>
+          <div>
+          {authUser && <div className="cm-campus-contribute"><div><strong>Campus communities</strong><span>Start a group for students at {authUser.collegeName}.</span></div><PrimaryButton icon={Plus} onClick={() => setContributionType("club")}>Create community</PrimaryButton></div>}
+          <div className="cm-explore-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(230px,1fr))", gap: 14 }}>
             {clubList.map((c) => (
               <GlassCard key={c.id} t={t} style={{ padding: 18, transition: "transform .15s ease" }}
                 onClick={(e) => { e.currentTarget.style.transform = "translateY(-3px)"; }}>
@@ -1861,19 +2068,21 @@ function Explore({ t, profile, posts, following, onToggleFollow, onLike, onSave,
                 <p style={{ fontSize: 12.5, color: t.textMuted, marginTop: 10, lineHeight: 1.5 }}>{c.desc}</p>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 12 }}>
                   <span style={{ fontSize: 11.5, color: t.textFaint }}>{c.members} members</span>
-                  <button style={{ fontSize: 12, fontWeight: 700, color: TOKENS.primary, background: "none", border: "none", cursor: "pointer" }}>Join →</button>
+                  <button onClick={() => authUser && cmApi.joinClub(c.id).then(() => setContributionNotice(`You joined ${c.name}.`)).catch(() => setContributionNotice("Could not join this community."))} style={{ fontSize: 12, fontWeight: 700, color: TOKENS.primary, background: "none", border: "none", cursor: "pointer" }}>Join →</button>
                 </div>
               </GlassCard>
             ))}
+          </div>
           </div>
         )}
 
         {tab === "events" && (
           <div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(230px,1fr))", gap: 14 }}>
-              {eventList.map((e) => <EventCard key={e.id} t={t} e={e} />)}
+            {authUser && <div className="cm-campus-contribute"><div><strong>Upcoming events</strong><span>Share a real campus event with other students.</span></div><PrimaryButton icon={Plus} onClick={() => setContributionType("event")}>Add event</PrimaryButton></div>}
+            <div className="cm-explore-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(230px,1fr))", gap: 14 }}>
+              {eventList.map((e) => <EventCard key={e.id} t={t} e={e} onRegister={authUser ? event => cmApi.registerForEvent(event.id).then(() => setContributionNotice(`Registered for ${event.title}.`)).catch(() => setContributionNotice("Could not register for this event.")) : undefined} />)}
             </div>
-            <h3 className="cm-display" style={{ fontSize: 16, fontWeight: 700, marginTop: 28, marginBottom: 12 }}>Hackathon 2026 — schedule</h3>
+            {!authUser && <><h3 className="cm-display" style={{ fontSize: 16, fontWeight: 700, marginTop: 28, marginBottom: 12 }}>Hackathon 2026 — schedule</h3>
             <GlassCard t={t} style={{ padding: 20 }}>
               {TIMELINE.map((tl, i) => (
                 <div key={i} style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
@@ -1887,8 +2096,21 @@ function Explore({ t, profile, posts, following, onToggleFollow, onLike, onSave,
                   </div>
                 </div>
               ))}
-            </GlassCard>
+            </GlassCard></>}
           </div>
+        )}
+        {contributionType && (
+          <CampusContributionSheet
+            t={t}
+            type={contributionType}
+            onClose={() => setContributionType(null)}
+            onCreated={created => {
+              if (contributionType === "event") onEventCreated(adaptApiEvent(created));
+              else onClubCreated(adaptApiClub(created));
+              setContributionNotice(`${contributionType === "event" ? "Event" : "Community"} published successfully.`);
+              setContributionType(null);
+            }}
+          />
         )}
       </div>
     </div>
@@ -1952,7 +2174,7 @@ function ReelCard({ t, reel, active, liked, saved, onLike, onSave, onOpenComment
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
           <Avatar name={a.name} color={collegeColor(a.college)} size={34} />
           <span style={{ color: "#fff", fontWeight: 700, fontSize: 13.5 }}>{a.name}</span>
-          <CheckCircle2 size={13} color={TOKENS.super} />
+          {a.verificationStatus === "college_verified" && <CheckCircle2 size={13} color={TOKENS.super} aria-label="College verified" />}
           <Badge color={collegeColor(a.college)}>{a.college}</Badge>
         </div>
         <p style={{ color: "#fff", fontSize: 13, margin: "0 0 6px", lineHeight: 1.4 }}>{reel.caption}</p>
@@ -2137,7 +2359,7 @@ function Matches({ t, matches, onOpenChat }) {
   return (
     <div>
       <TopBar t={t} title="Matches" subtitle={`${matches.length} mutual match${matches.length === 1 ? "" : "es"}`} />
-      <div style={{ padding: "10px 24px" }}>
+      <div className="cm-page-gutter cm-matches-page">
         {matches.length === 0 ? (
           <div style={{ textAlign: "center", padding: "60px 0", color: t.textMuted }}>
             <div style={{ fontSize: 40, marginBottom: 8 }}>💬</div>
@@ -2237,7 +2459,7 @@ function Profile({ t, profile, posts, reels, following, onBell, authUser, onPhot
   return (
     <div>
       <TopBar t={t} title="My Profile" onBell={onBell} />
-      <div style={{ padding: "10px 24px", maxWidth: 480 }}>
+      <div className="cm-page-gutter cm-profile-page" style={{ maxWidth: 480 }}>
         {toast && (
           <div style={{ marginBottom: 12, padding: "10px 14px", borderRadius: 12, background: t.surfaceStrong, border: `1px solid ${t.border}`, fontSize: 12.5, color: t.text, animation: "cmPop .2s ease both" }}>
             {toast}
@@ -2258,10 +2480,10 @@ function Profile({ t, profile, posts, reels, following, onBell, authUser, onPhot
           </div>
           <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 6 }}>
             <span className="cm-display" style={{ fontWeight: 700, fontSize: 19, color: t.text }}>{profile.name || "Your Name"}</span>
-            <CheckCircle2 size={17} color={TOKENS.super} />
+            {authUser?.verificationStatus === "college_verified" && <CheckCircle2 size={17} color={TOKENS.super} aria-label="College verified" />}
           </div>
           <div style={{ fontSize: 13, color: t.textMuted, marginTop: 2 }}>{profile.branch || "Branch"} • {profile.year || "Year"}</div>
-          {profile.college && <Badge color={collegeColor(profile.college)} style={{ marginTop: 8 }}>✓ Verified {profile.college} Student</Badge>}
+          {profile.college && <Badge color={collegeColor(profile.college)} style={{ marginTop: 8 }}>{authUser?.verificationStatus === "college_verified" ? "✓ College verified · " : ""}{profile.college}</Badge>}
           {profile.bio && <p style={{ fontSize: 13.5, color: t.textMuted, marginTop: 14, lineHeight: 1.6 }}>{profile.bio}</p>}
 
           <div style={{ display: "flex", justifyContent: "center", gap: 26, marginTop: 16 }}>
@@ -2368,11 +2590,12 @@ function CollegePicker({ t, value, onChange }) {
       const college = await cmApi.addCollege(addForm);
       pick(college);
     } catch (err) {
-      // offline/demo mode — no backend to add to; fall back to a local-only selection
-      onChange({ id: null, name: addForm.name.trim(), city: addForm.city?.trim() });
-      setQuery(addForm.name.trim());
-      setOpen(false);
-      setShowAdd(false);
+      if (DEMO_MODE_ENABLED) {
+        onChange({ id: null, name: addForm.name.trim(), city: addForm.city?.trim() });
+        setQuery(addForm.name.trim());
+        setOpen(false);
+        setShowAdd(false);
+      }
     } finally {
       setBusy(false);
     }
@@ -2462,7 +2685,7 @@ function AuthScreen({ t, dark, setDark, onAuthed }) {
             collegeId: college.id || undefined, collegeName: college.id ? undefined : college.name, collegeCity: college.city,
           });
       localStorage.setItem("cm_token", data.token);
-      onAuthed(data.user);
+      onAuthed(data.user, { isNewAccount: mode === "register" });
     } catch (err) {
       if (!err.response) {
         // network/backend unreachable — this is expected if the backend isn't running
@@ -2516,11 +2739,13 @@ function AuthScreen({ t, dark, setDark, onAuthed }) {
           {offline && (
             <div style={{ marginTop: 12, display: "flex", gap: 8, alignItems: "flex-start", fontSize: 12.5, color: t.textMuted, background: t.surface, padding: 10, borderRadius: 10 }}>
               <WifiOff size={14} style={{ marginTop: 1, flexShrink: 0 }} />
-              <span>Can't reach the CampusMate backend right now. Start it with <code>cd backend && npm run dev</code>, or continue below with local demo data.</span>
+              <span>{DEMO_MODE_ENABLED
+                ? <>Can't reach the CampusMate backend. Start it with <code>cd backend &amp;&amp; npm run dev</code> and try again.</>
+                : "CampusMate is temporarily unavailable. Please try again shortly."}</span>
             </div>
           )}
 
-          <PrimaryButton onClick={submit} style={{ width: "100%", justifyContent: "center", marginTop: 16 }} icon={loading ? Loader2 : ArrowRight}>
+          <PrimaryButton onClick={submit} disabled={loading} style={{ width: "100%", justifyContent: "center", marginTop: 16, opacity: loading ? .65 : 1 }} icon={loading ? Loader2 : ArrowRight}>
             {loading ? "Please wait..." : mode === "login" ? "Log In" : "Create Account"}
           </PrimaryButton>
         </GlassCard>
@@ -2548,6 +2773,11 @@ export default function CampusMateApp() {
   const [matchModal, setMatchModal] = useState(null);
   const [matches, setMatches] = useState([]);
 
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    document.querySelector(".cm-app-content")?.scrollTo?.({ top: 0, left: 0, behavior: "auto" });
+  }, [tab, view]);
+
   // ---- Session / backend connectivity ----
   const [authUser, setAuthUser] = useState(null);
   const [checkingSession, setCheckingSession] = useState(true);
@@ -2559,9 +2789,12 @@ export default function CampusMateApp() {
     cmApi.fetchMe()
       .then((user) => {
         setAuthUser(user);
+        setPosts([]);
+        setReels([]);
+        setMatches([]);
         setBackendOnline(true);
         setProfile((p) => ({
-          ...p, name: user.name, college: user.college, branch: user.branch || "",
+          ...p, name: user.name, college: user.collegeName || user.college, branch: user.branch || "",
           year: user.year || "", bio: user.bio || "", interests: user.interests || [],
           lookingFor: user.lookingFor || "",
         }));
@@ -2575,9 +2808,12 @@ export default function CampusMateApp() {
   }, []);
 
   // ---- Phase 2: social state ----
-  const [posts, setPosts] = useState(POSTS.map((p) => ({ ...p, liked: false, saved: false })));
-  const [reels, setReels] = useState(REELS.map((r) => ({ ...r, liked: false, saved: false })));
-  const [following, setFollowing] = useState([1, 5]); // demo: already following two seed accounts
+  const [posts, setPosts] = useState(DEMO_MODE_ENABLED ? POSTS.map((p) => ({ ...p, liked: false, saved: false })) : []);
+  const [reels, setReels] = useState(DEMO_MODE_ENABLED ? REELS.map((r) => ({ ...r, liked: false, saved: false })) : []);
+  const [following, setFollowing] = useState(DEMO_MODE_ENABLED ? [1, 5] : []);
+  const [homeStudents, setHomeStudents] = useState([]);
+  const [clubs, setClubs] = useState([]);
+  const [events, setEvents] = useState([]);
   const [activeStory, setActiveStory] = useState(null);
   const [showCreate, setShowCreate] = useState(false);
   const [showNotifs, setShowNotifs] = useState(false);
@@ -2594,25 +2830,43 @@ export default function CampusMateApp() {
     lookingFor: "",
   });
 
-  // Best-effort: if we're logged in against a real backend, try to fetch the
-  // live feed/reels once we land on "app". If it fails for any reason
-  // (backend not running, no seed data, network hiccup) we silently keep
-  // showing the local demo dataset already in state — the UI never blocks
-  // or crashes on this.
+  // Authenticated data never falls back to local sample records.
   useEffect(() => {
     if (view !== "app" || !authUser) return;
-    cmApi.fetchFeed("For You").then((data) => {
-      if (data?.posts?.length) setBackendOnline(true);
-    }).catch(() => {});
-    cmApi.fetchReels(undefined).then((list) => {
-      if (list?.length) setBackendOnline(true);
-    }).catch(() => {});
+    setPosts([]);
+    setReels([]);
+    Promise.allSettled([
+      cmApi.fetchFeed("For You"),
+      cmApi.fetchReels(),
+      cmApi.fetchMatches(),
+      cmApi.api.get("/users", { params: { page: 1, limit: 12 } }).then((r) => r.data.users),
+      cmApi.fetchClubs(),
+      cmApi.fetchEvents(),
+      cmApi.fetchFollowing(),
+    ]).then(([feed, reelItems, matchItems, studentItems, clubItems, eventItems, followingIds]) => {
+      setPosts(feed.status === "fulfilled" ? (feed.value.posts || []).map(adaptApiPost) : []);
+      setReels(reelItems.status === "fulfilled" ? (reelItems.value || []).map(adaptApiReel) : []);
+      setMatches(matchItems.status === "fulfilled" ? (matchItems.value || []) : []);
+      setHomeStudents(studentItems.status === "fulfilled"
+        ? (studentItems.value || []).filter((user) => user._id !== authUser._id).map(adaptApiStudent)
+        : []);
+      setClubs(clubItems.status === "fulfilled" ? (clubItems.value || []).map(adaptApiClub) : []);
+      setEvents(eventItems.status === "fulfilled" ? (eventItems.value || []).map(adaptApiEvent) : []);
+      setFollowing(followingIds.status === "fulfilled" ? (followingIds.value || []).map(String) : []);
+      setBackendOnline([feed, reelItems, matchItems, studentItems, clubItems, eventItems, followingIds].some((result) => result.status === "fulfilled"));
+    });
   }, [view, authUser]);
 
-  const handleMatch = (student) => {
-    setMatches((m) => (m.find((x) => x.id === student.id) ? m : [student, ...m]));
+  const handleMatch = (student, matchRecord) => {
+    setMatches((items) => {
+      const matchId = matchRecord?._id;
+      if (matchId && items.some((item) => String(item._id) === String(matchId))) return items;
+      if (!matchId && items.some((item) => item.id === student.id)) return items;
+      return matchId
+        ? [{ _id: matchId, user: student, createdAt: matchRecord.createdAt || new Date().toISOString() }, ...items]
+        : [student, ...items];
+    });
     setMatchModal(student);
-    if (authUser) cmApi.swipe(student.id, "like").catch(() => {});
   };
 
   const toggleFollow = (id) => {
@@ -2632,11 +2886,19 @@ export default function CampusMateApp() {
     setPosts((ps) => ps.map((p) => p.id === id ? { ...p, saved: !p.saved } : p));
     if (authUser) cmApi.savePost(id).catch(() => {});
   };
-  const addComment = (postId, text) => {
-    setPosts((ps) => ps.map((p) => p.id === postId
-      ? { ...p, commentsCount: p.commentsCount + 1, comments: [...p.comments, { id: `c${Date.now()}`, authorId: 1, text, time: "now" }] }
-      : p));
-    if (authUser) cmApi.addComment(postId, text).catch(() => {});
+  const addComment = async (postId, text) => {
+    if (authUser) {
+      const created = adaptApiComment(await cmApi.addComment(postId, text));
+      setPosts((items) => items.map((post) => post.id === postId
+        ? { ...post, commentsCount: post.commentsCount + 1, comments: [...post.comments, created] }
+        : post));
+      return created;
+    }
+    const created = { id: `c${Date.now()}`, authorId: 1, text, time: "now" };
+    setPosts((items) => items.map((post) => post.id === postId
+      ? { ...post, commentsCount: post.commentsCount + 1, comments: [...post.comments, created] }
+      : post));
+    return created;
   };
 
   const likeReel = (id) => {
@@ -2644,20 +2906,33 @@ export default function CampusMateApp() {
       ? { ...r, liked: !r.liked, likesCount: r.likesCount + (r.liked ? -1 : 1) } : r));
     if (authUser) cmApi.likeReel(id).catch(() => {});
   };
-  const saveReel = (id) => setReels((rs) => rs.map((r) => r.id === id ? { ...r, saved: !r.saved } : r));
+  const saveReel = (id) => {
+    setReels((rs) => rs.map((r) => r.id === id ? { ...r, saved: !r.saved } : r));
+    if (authUser) cmApi.saveReel(id).catch(() => {});
+  };
   const viewReel = (id) => {
     setReels((rs) => rs.map((r) => r.id === id ? { ...r, views: r.views + 1 } : r));
     if (authUser) cmApi.registerReelView(id).catch(() => {});
   };
 
-  const publishPost = ({ type, caption }) => {
-    setPosts((ps) => [{
-      id: `p${Date.now()}`, authorId: 1, type, caption, hashtags: ["#CampusLife"],
-      likesCount: 0, commentsCount: 0, savesCount: 0, createdAt: "just now", comments: [], liked: false, saved: false,
-    }, ...ps]);
-    // Real publishing requires multipart media upload (see cmApi.createPost) —
-    // left as local-only for text-post demo content in this pass since the
-    // Create sheet doesn't yet collect a real file for photo/reel modes.
+  const publishPost = async ({ type, caption, file }) => {
+    if (!authUser) throw new Error("Log in before publishing.");
+    const form = new FormData();
+    form.append("caption", caption);
+
+    if (type === "reel") {
+      form.append("video", file);
+      const created = await cmApi.createReel(form);
+      setReels((items) => [{ ...adaptApiReel(created), liked: false, saved: false }, ...items]);
+      showToast("Reel published successfully.");
+      return;
+    }
+
+    form.append("type", type);
+    if (file) form.append("media", file);
+    const created = await cmApi.createPost(form);
+    setPosts((items) => [{ ...adaptApiPost(created), liked: false, saved: false }, ...items]);
+    showToast("Post published successfully.");
   };
 
   if (checkingSession) {
@@ -2673,7 +2948,16 @@ export default function CampusMateApp() {
     return (
       <div className="cm-root">
         <GlobalStyle />
-        <LandingPage t={t} dark={dark} setDark={setDark} onStart={() => setView(authUser ? "onboarding" : "auth")} />
+        <LandingPage
+          t={t}
+          dark={dark}
+          setDark={setDark}
+          authUser={authUser}
+          onStart={() => {
+            if (authUser) setTab("home");
+            setView(authUser ? "app" : "auth");
+          }}
+        />
       </div>
     );
   }
@@ -2684,15 +2968,19 @@ export default function CampusMateApp() {
         <GlobalStyle />
         <AuthScreen
           t={t} dark={dark} setDark={setDark}
-          onAuthed={(user) => {
+          onAuthed={(user, { isNewAccount } = {}) => {
             setAuthUser(user);
+            setTab("home");
+            setPosts([]);
+            setReels([]);
+            setMatches([]);
             setBackendOnline(true);
             setProfile((p) => ({
-              ...p, name: user.name, college: user.college, branch: user.branch || "",
+              ...p, name: user.name, college: user.collegeName || user.college, branch: user.branch || "",
               year: user.year || "", bio: user.bio || "", interests: user.interests || [],
               lookingFor: user.lookingFor || "",
             }));
-            setView("onboarding");
+            setView(isNewAccount ? "onboarding" : "app");
           }}
         />
       </div>
@@ -2710,17 +2998,9 @@ export default function CampusMateApp() {
               interests: profile.interests, lookingFor: profile.lookingFor,
             }).catch(() => {});
           }
+          setTab("home");
           setView("app");
         }} />
-      </div>
-    );
-  }
-
-  if (activeChat) {
-    return (
-      <div className="cm-root" style={{ background: t.bg }}>
-        <GlobalStyle />
-        <Chat t={t} student={activeChat} profile={profile} onBack={() => setActiveChat(null)} />
       </div>
     );
   }
@@ -2730,30 +3010,32 @@ export default function CampusMateApp() {
   return (
     <div className="cm-root">
       <GlobalStyle />
+      <ToastHost />
       <Shell t={t} dark={dark} setDark={setDark} tab={tab} setTab={setTab} unread={matches.length} onCreate={() => setShowCreate(true)}
-        connectionStatus={!authUser ? "demo" : backendOnline ? "online" : "demo"}>
+        connectionStatus={backendOnline ? "online" : "offline"} onBrandClick={() => setView("landing")}>
+        <FeatureErrorBoundary resetKey={tab} onHome={() => setTab("home")}>
         {tab === "home" && (
           <Feed
-            t={t} profile={profile} matches={matches} posts={posts} following={following}
+            t={t} profile={profile} authUser={authUser} matches={matches} posts={posts} following={following}
+            students={authUser ? homeStudents : STUDENTS} clubs={authUser ? clubs : CLUBS} events={authUser ? events : EVENTS}
             onToggleFollow={toggleFollow} onLike={likePost} onSave={savePost}
             onOpenComments={(p) => setCommentsPost(p)} onOpenStory={openStory}
-            onBell={() => setShowNotifs((s) => !s)} setTab={setTab} onGoDiscover={() => setTab("discover")}
+            onBell={() => setShowNotifs((s) => !s)} onBrandClick={() => setView("landing")} setTab={setTab} onGoDiscover={() => setTab("discover")}
           />
         )}
-        {tab === "discover" && <Discover t={t} profile={profile} onMatch={handleMatch} />}
+        {tab === "discover" && <Discover t={t} profile={profile} authUser={authUser} onMatch={handleMatch} onServerMatch={handleMatch} />}
         {tab === "explore" && (
           <Explore t={t} profile={profile} posts={posts} following={following}
             onToggleFollow={toggleFollow} onLike={likePost} onSave={savePost} onOpenComments={(p) => setCommentsPost(p)}
             reels={reels} onLikeReel={likeReel} onSaveReel={saveReel} onOpenReelComments={(r) => setCommentsReel(r)} onViewReel={viewReel}
-            authUser={authUser}
+            authUser={authUser} clubs={clubs} events={events}
+            onClubCreated={(club) => setClubs(items => [club, ...items])}
+            onEventCreated={(event) => setEvents(items => [event, ...items])}
           />
         )}
-        {tab === "messages" && <Matches t={t} matches={matches} onOpenChat={setActiveChat} />}
-        {tab === "profile" && (
-          <Profile t={t} profile={profile} posts={posts} reels={reels} following={following}
-            onBell={() => setShowNotifs((s) => !s)} authUser={authUser}
-            onPhotoUpdated={(photo) => setAuthUser((u) => ({ ...u, profilePhoto: photo }))} />
-        )}
+        {tab === "messages" && <NativeMessages onClose={() => setTab("home")} />}
+        {tab === "profile" && <NativeProfile me={authUser} dark={dark} setDark={setDark} onUserChange={(user) => { setAuthUser(user); setProfile(p => ({ ...p, name: user.name || p.name, college: user.collegeName || p.college, branch: user.branch || "", year: user.year || "", bio: user.bio || "", interests: user.interests || [], lookingFor: user.lookingFor || "" })); }} onLogout={() => { setAuthUser(null); setTab("home"); setView("landing"); }} />}
+        </FeatureErrorBoundary>
       </Shell>
 
       <MatchModal
@@ -2761,14 +3043,14 @@ export default function CampusMateApp() {
         student={matchModal}
         profile={profile}
         onClose={() => setMatchModal(null)}
-        onChat={() => { setActiveChat(matchModal); setMatchModal(null); }}
+        onChat={() => { setActiveChat(null); setTab("messages"); setMatchModal(null); }}
       />
 
       {activeStory && <StoryViewer t={t} story={activeStory} profile={profile} onClose={() => setActiveStory(null)} />}
       {showCreate && <CreateSheet t={t} onClose={() => setShowCreate(false)} onPublish={publishPost} />}
-      {showNotifs && <NotificationsPanel t={t} onClose={() => setShowNotifs(false)} />}
+      {showNotifs && <NotificationsPanel t={t} authUser={authUser} onClose={() => setShowNotifs(false)} />}
       {commentsPost && (
-        <CommentsSheet t={t} post={posts.find((p) => p.id === commentsPost.id) || commentsPost} profile={profile}
+        <CommentsSheet t={t} post={posts.find((p) => p.id === commentsPost.id) || commentsPost} profile={profile} authUser={authUser}
           onClose={() => setCommentsPost(null)} onAddComment={addComment} />
       )}
       {commentsReel && <ReelCommentsSheet t={t} reel={commentsReel} profile={profile} onClose={() => setCommentsReel(null)} />}
