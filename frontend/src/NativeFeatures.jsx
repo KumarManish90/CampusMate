@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Bookmark, ChevronLeft, ChevronRight, Film, Heart, Image as ImageIcon, Loader2, LogOut, Paperclip, Pencil, Play, RefreshCw, Send, Shield, Smile, Trash2, Volume2, VolumeX, X } from "lucide-react";
 import * as api from "./api/client";
 import { disconnectChatSocket, getChatSocket } from "./api/chatSocket";
+import { showToast } from "./utils/toast.js";
 
 const panel = { border: "1px solid rgba(128,128,160,.2)", borderRadius: 16, background: "rgba(128,128,160,.06)" };
 const button = { minHeight: 44, border: "1px solid rgba(128,128,160,.25)", borderRadius: 12, background: "rgba(128,128,160,.09)", color: "inherit", padding: "0 14px", cursor: "pointer" };
@@ -36,7 +37,7 @@ export function NativeStories({ me }) {
 
 function StoryComposer({ onClose, onCreated }) {
   const [type, setType] = useState("text"), [text, setText] = useState(""), [file, setFile] = useState(null), [busy, setBusy] = useState(false), [error, setError] = useState("");
-  const submit = async e => { e.preventDefault(); if (type !== "text" && !file) return setError("Choose an image or video."); const form = new FormData(); form.append("type", type); form.append("textOverlay", text); form.append("backgroundColor", "#6D5DF6"); if (file) form.append("media", file); setBusy(true); try { onCreated(await api.createStory(form)); } catch (err) { setError(errorText(err)); setBusy(false); } };
+  const submit = async e => { e.preventDefault(); if (type !== "text" && !file) return setError("Choose an image or video."); const form = new FormData(); form.append("type", type); form.append("textOverlay", text); form.append("backgroundColor", "#6D5DF6"); if (file) form.append("media", file); setBusy(true); try { onCreated(await api.createStory(form)); showToast("Story published successfully."); } catch (err) { const message = errorText(err); setError(message); showToast(message, "error"); setBusy(false); } };
   return <div className="cm-native-modal"><form className="cm-media-composer" onSubmit={submit}><header><strong>Create story</strong><button type="button" onClick={onClose}><X/></button></header><select style={field} value={type} onChange={e => { setType(e.target.value); setFile(null); }}><option value="text">Text</option><option value="image">Image</option><option value="video">Video</option></select><textarea style={field} value={text} maxLength={300} onChange={e => setText(e.target.value)} placeholder="Story text"/>{type !== "text" && <input style={field} type="file" accept={type === "video" ? "video/*" : "image/*"} onChange={e => setFile(e.target.files?.[0] || null)}/>} {error && <div className="cm-inline-error">{error}</div>}<button style={button} disabled={busy}>{busy ? "Publishing…" : "Publish story"}</button></form></div>;
 }
 
@@ -58,7 +59,7 @@ export function NativeReels({ t }) {
 
 function ReelComposer({ onClose, onCreated }) {
   const [video, setVideo] = useState(null), [caption, setCaption] = useState(""), [hashtags, setHashtags] = useState(""), [busy, setBusy] = useState(false), [error, setError] = useState("");
-  const submit = async e => { e.preventDefault(); if (!video) return setError("Choose a video."); const form = new FormData(); form.append("video", video); form.append("caption", caption); form.append("hashtags", hashtags); setBusy(true); try { onCreated(await api.createReel(form)); } catch (err) { setError(errorText(err)); setBusy(false); } };
+  const submit = async e => { e.preventDefault(); if (!video) return setError("Choose a video."); const form = new FormData(); form.append("video", video); form.append("caption", caption); form.append("hashtags", hashtags); setBusy(true); try { onCreated(await api.createReel(form)); showToast("Reel published successfully."); } catch (err) { const message = errorText(err); setError(message); showToast(message, "error"); setBusy(false); } };
   return <div className="cm-native-modal"><form className="cm-media-composer" onSubmit={submit}><header><strong>Upload reel</strong><button type="button" onClick={onClose}><X/></button></header><input style={field} type="file" accept="video/*" onChange={e => setVideo(e.target.files?.[0] || null)}/><textarea style={field} value={caption} maxLength={300} onChange={e => setCaption(e.target.value)} placeholder="Caption"/><input style={field} value={hashtags} onChange={e => setHashtags(e.target.value)} placeholder="hashtags, comma separated"/>{error && <div className="cm-inline-error">{error}</div>}<button style={button} disabled={busy}>{busy ? "Uploading…" : "Publish reel"}</button></form></div>;
 }
 
@@ -109,8 +110,8 @@ export function NativeProfile({ me, onUserChange, onLogout }) {
   const [tab, setTab] = useState("posts"), [posts, setPosts] = useState([]), [reels, setReels] = useState([]), [saved, setSaved] = useState({ posts: [], reels: [] }), [edit, setEdit] = useState(false), [error, setError] = useState(""), [form, setForm] = useState({});
   const load = async () => { if (!me?._id) return; try { const [p, r, s] = await Promise.all([api.fetchUserPosts(me._id), api.fetchUserReels(me._id), api.fetchSavedContent(me._id)]); setPosts(p); setReels(r); setSaved(s); setForm({ name: me.name || "", bio: me.bio || "", branch: me.branch || "", year: me.year || "", lookingFor: me.lookingFor || "", interests: (me.interests || []).join(", "), privacy: me.privacy?.postsDefault || "campus" }); setError(""); } catch (e) { setError(errorText(e)); } };
   useEffect(() => { load(); }, [me?._id]);
-  const save = async () => { try { const { privacy, ...values } = form; const user = await api.updateUserProfile(me._id, { ...values, privacy: { ...(me.privacy || {}), postsDefault: privacy }, interests: String(form.interests || "").split(",").map(x => x.trim()).filter(Boolean) }); onUserChange(user); setEdit(false); } catch (e) { setError(errorText(e)); } };
-  const photo = async e => { const file = e.target.files?.[0]; if (!file) return; try { const result = await api.uploadProfilePhoto(me._id, file); onUserChange(result.user); } catch (err) { setError(errorText(err)); } e.target.value = ""; };
+  const save = async () => { try { const { privacy, ...values } = form; const user = await api.updateUserProfile(me._id, { ...values, privacy: { ...(me.privacy || {}), postsDefault: privacy }, interests: String(form.interests || "").split(",").map(x => x.trim()).filter(Boolean) }); onUserChange(user); setEdit(false); showToast("Profile updated successfully."); } catch (e) { const message = errorText(e); setError(message); showToast(message, "error"); } };
+  const photo = async e => { const file = e.target.files?.[0]; if (!file) return; try { const result = await api.uploadProfilePhoto(me._id, file); onUserChange(result.user); showToast("Profile photo updated."); } catch (err) { const message = errorText(err); setError(message); showToast(message, "error"); } e.target.value = ""; };
   const logout = () => { disconnectChatSocket(); localStorage.removeItem("cm_token"); onLogout(); };
   if (!me?._id) return <section className="cm-native-profile"><div className="cm-empty">Your session is loading. Please try again.</div></section>;
   const items = tab === "posts" ? posts : tab === "reels" ? reels : [...(saved.posts || []), ...(saved.reels || [])];

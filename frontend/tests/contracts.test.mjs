@@ -38,3 +38,9 @@ test("students can create communities and upcoming events", () => {
   assert.match(app, /cmApi\.createClub/);
   assert.match(app, /cmApi\.createEvent/);
 });
+test("section navigation resets scroll and action feedback stays in the viewport", () => {
+  assert.match(app, /window\.scrollTo\(\{ top: 0/);
+  assert.match(app, /cm-global-toast/);
+  assert.match(css, /\.cm-global-toast\{position:fixed/);
+  assert.doesNotMatch(app, /\{notice && <div className="cm-match-notice"/);
+});

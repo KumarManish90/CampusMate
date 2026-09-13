@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import * as cmApi from "./api/client";
 import { NativeMessages, NativeProfile, NativeReels, NativeStories } from "./NativeFeatures.jsx";
+import { CAMPUSMATE_TOAST_EVENT, showToast } from "./utils/toast.js";
 
 /* ============================================================
    DESIGN TOKENS
@@ -523,6 +524,24 @@ function LandingPage({ onStart, authUser, onProfile }) {
       <footer className="cm-cine-footer"><a className="cm-cine-logo" href="#top">Campus<span>mate</span></a><p>For GGITS, GGCT & GGCE</p></footer>
     </div>
   );
+}
+
+function ToastHost() {
+  const [toast, setToast] = useState(null);
+  const timerRef = useRef(null);
+
+  useEffect(() => {
+    const show = event => {
+      clearTimeout(timerRef.current);
+      setToast(event.detail);
+      timerRef.current = setTimeout(() => setToast(null), 3800);
+    };
+    window.addEventListener(CAMPUSMATE_TOAST_EVENT, show);
+    return () => { window.removeEventListener(CAMPUSMATE_TOAST_EVENT, show); clearTimeout(timerRef.current); };
+  }, []);
+
+  if (!toast) return null;
+  return <div className={`cm-global-toast ${toast.type === "error" ? "error" : "success"}`} role={toast.type === "error" ? "alert" : "status"}><span>{toast.type === "error" ? "!" : "✓"}</span><p>{toast.message}</p><button aria-label="Dismiss notification" onClick={() => setToast(null)}>×</button></div>;
 }
 /* ============================================================
    ONBOARDING
@@ -1538,6 +1557,9 @@ function Discover({ t, profile, onMatch, onServerMatch, authUser }) {
     setNotice("");
   }, [filter]);
 
+  useEffect(() => { if (error) showToast(error, "error"); }, [error]);
+  useEffect(() => { if (notice) showToast(notice, "success"); }, [notice]);
+
   // Authenticated discovery is server-owned; demo candidates are guest-only.
   useEffect(() => {
     if (!authUser) return;
@@ -1574,7 +1596,7 @@ function Discover({ t, profile, onMatch, onServerMatch, authUser }) {
       try {
         const result = await cmApi.swipe(current.id, apiAction);
         if (result?.matched) onServerMatch(current, result.match);
-        else if (type !== "pass") setNotice(`Like sent to ${current.name}. You'll match when they like you back.`);
+        else if (type !== "pass") setNotice(`${type === "connect" ? "Connect request" : "Like"} sent to ${current.name}. You'll match when they respond.`);
       } catch (requestError) {
         setDragState({ x: 0, y: 0 });
         setError(requestError.response?.data?.message || "Swipe could not be saved. Check your connection and try again.");
@@ -1623,8 +1645,6 @@ function Discover({ t, profile, onMatch, onServerMatch, authUser }) {
     <div>
       <TopBar t={t} title="Matching" subtitle="Find friends, teammates & study partners across campus" />
       <div className="cm-page-gutter cm-discover-page">
-        {error && <div className="cm-match-notice error" role="alert">{error}</div>}
-        {notice && <div className="cm-match-notice" role="status">{notice}</div>}
         <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 12 }}>
           <CollegePill code="All" active={filter === "All"} onClick={() => setFilter("All")} />
           {COLLEGES.map((c) => (
@@ -1814,6 +1834,7 @@ function Explore({ t, profile, posts, following, onToggleFollow, onLike, onSave,
   const [loadingLive, setLoadingLive] = useState(false);
   const [contributionType, setContributionType] = useState(null);
   const [contributionNotice, setContributionNotice] = useState("");
+  useEffect(() => { if (contributionNotice) showToast(contributionNotice, contributionNotice.startsWith("Could not") ? "error" : "success"); }, [contributionNotice]);
 
   useEffect(() => {
     if (!authUser) return;
@@ -1994,7 +2015,6 @@ function Explore({ t, profile, posts, following, onToggleFollow, onLike, onSave,
         {tab === "clubs" && (
           <div>
           {authUser && <div className="cm-campus-contribute"><div><strong>Campus communities</strong><span>Start a group for students at {authUser.collegeName}.</span></div><PrimaryButton icon={Plus} onClick={() => setContributionType("club")}>Create community</PrimaryButton></div>}
-          {contributionNotice && <div className="cm-match-notice" role="status">{contributionNotice}</div>}
           <div className="cm-explore-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(230px,1fr))", gap: 14 }}>
             {clubList.map((c) => (
               <GlassCard key={c.id} t={t} style={{ padding: 18, transition: "transform .15s ease" }}
@@ -2022,7 +2042,6 @@ function Explore({ t, profile, posts, following, onToggleFollow, onLike, onSave,
         {tab === "events" && (
           <div>
             {authUser && <div className="cm-campus-contribute"><div><strong>Upcoming events</strong><span>Share a real campus event with other students.</span></div><PrimaryButton icon={Plus} onClick={() => setContributionType("event")}>Add event</PrimaryButton></div>}
-            {contributionNotice && <div className="cm-match-notice" role="status">{contributionNotice}</div>}
             <div className="cm-explore-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(230px,1fr))", gap: 14 }}>
               {eventList.map((e) => <EventCard key={e.id} t={t} e={e} onRegister={authUser ? event => cmApi.registerForEvent(event.id).then(() => setContributionNotice(`Registered for ${event.title}.`)).catch(() => setContributionNotice("Could not register for this event.")) : undefined} />)}
             </div>
@@ -2717,6 +2736,11 @@ export default function CampusMateApp() {
   const [matchModal, setMatchModal] = useState(null);
   const [matches, setMatches] = useState([]);
 
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    document.querySelector(".cm-app-content")?.scrollTo?.({ top: 0, left: 0, behavior: "auto" });
+  }, [tab, view]);
+
   // ---- Session / backend connectivity ----
   const [authUser, setAuthUser] = useState(null);
   const [checkingSession, setCheckingSession] = useState(true);
@@ -2863,6 +2887,7 @@ export default function CampusMateApp() {
       form.append("video", file);
       const created = await cmApi.createReel(form);
       setReels((items) => [{ ...adaptApiReel(created), liked: false, saved: false }, ...items]);
+      showToast("Reel published successfully.");
       return;
     }
 
@@ -2870,6 +2895,7 @@ export default function CampusMateApp() {
     if (file) form.append("media", file);
     const created = await cmApi.createPost(form);
     setPosts((items) => [{ ...adaptApiPost(created), liked: false, saved: false }, ...items]);
+    showToast("Post published successfully.");
   };
 
   if (checkingSession) {
@@ -2943,6 +2969,7 @@ export default function CampusMateApp() {
   return (
     <div className="cm-root">
       <GlobalStyle />
+      <ToastHost />
       <Shell t={t} dark={dark} setDark={setDark} tab={tab} setTab={setTab} unread={matches.length} onCreate={() => setShowCreate(true)}
         connectionStatus={backendOnline ? "online" : "offline"} onBrandClick={() => setView("landing")}>
         {tab === "home" && (
