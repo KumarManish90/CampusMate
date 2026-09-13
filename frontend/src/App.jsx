@@ -371,14 +371,15 @@ function PrimaryButton({ children, onClick, style, icon: Icon, disabled = false 
   );
 }
 
-function GhostButton({ children, onClick, t, style }) {
+function GhostButton({ children, onClick, t, style, disabled = false }) {
   return (
     <button
       onClick={onClick}
+      disabled={disabled}
       style={{
         background: "transparent", color: t.text, border: `1px solid ${t.border}`,
         borderRadius: 14, padding: "13px 22px", fontSize: 14.5, fontWeight: 600,
-        cursor: "pointer", transition: "background .15s ease", ...style,
+        cursor: disabled ? "wait" : "pointer", opacity: disabled ? 0.6 : 1, transition: "background .15s ease", ...style,
       }}
       onMouseEnter={(e) => (e.currentTarget.style.background = t.surface)}
       onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
@@ -1164,13 +1165,14 @@ function NotificationsPanel({ t, onClose, authUser }) {
 
 const NAV_ITEMS = [
   { key: "home", label: "Home", icon: Home },
-  { key: "explore", label: "Explore", icon: Users },
+  { key: "discover", label: "Match", icon: Heart },
   { key: "messages", label: "Messages", icon: MessageCircle },
   { key: "profile", label: "Profile", icon: User },
 ];
 
 const SIDEBAR_ITEMS = [
   { key: "home", label: "Home", icon: Home },
+  { key: "discover", label: "Matching", icon: Heart },
   { key: "explore", label: "Explore", icon: Users },
   { key: "messages", label: "Messages", icon: MessageCircle },
   { key: "profile", label: "Profile", icon: User },
@@ -1228,7 +1230,7 @@ function Shell({ t, dark, setDark, tab, setTab, children, unread, onCreate, conn
         </div>
       </div>
 
-      <div style={{ flex: 1, minWidth: 0, paddingBottom: 76 }}>
+      <div className="cm-app-content" style={{ flex: 1, minWidth: 0, paddingBottom: 76 }}>
         {children}
       </div>
 
@@ -1241,7 +1243,7 @@ function Shell({ t, dark, setDark, tab, setTab, children, unread, onCreate, conn
         {NAV_ITEMS.slice(0, 2).map((it) => {
           const active = tab === it.key;
           return (
-            <button key={it.key} onClick={() => setTab(it.key)} style={{
+            <button className="cm-mobile-nav-item" key={it.key} onClick={() => setTab(it.key)} style={{
               display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
               background: "transparent", border: "none", cursor: "pointer", padding: 6,
               color: active ? TOKENS.primary : t.textFaint, position: "relative",
@@ -1251,7 +1253,7 @@ function Shell({ t, dark, setDark, tab, setTab, children, unread, onCreate, conn
             </button>
           );
         })}
-        <button onClick={onCreate} style={{
+        <button className="cm-mobile-create" aria-label="Create" onClick={onCreate} style={{
           width: 46, height: 46, borderRadius: 16, border: "none", cursor: "pointer",
           background: `linear-gradient(135deg, ${TOKENS.primary}, ${TOKENS.primary2})`, color: "#fff",
           display: "flex", alignItems: "center", justifyContent: "center", marginTop: -18,
@@ -1260,7 +1262,7 @@ function Shell({ t, dark, setDark, tab, setTab, children, unread, onCreate, conn
         {NAV_ITEMS.slice(2).map((it) => {
           const active = tab === it.key;
           return (
-            <button key={it.key} onClick={() => setTab(it.key)} style={{
+            <button className="cm-mobile-nav-item" key={it.key} onClick={() => setTab(it.key)} style={{
               display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
               background: "transparent", border: "none", cursor: "pointer", padding: 6,
               color: active ? TOKENS.primary : t.textFaint, position: "relative",
@@ -1287,7 +1289,7 @@ function Shell({ t, dark, setDark, tab, setTab, children, unread, onCreate, conn
 
 function TopBar({ t, title, subtitle, onBell }) {
   return (
-    <div style={{ padding: "22px 24px 6px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+    <div className="cm-topbar" style={{ padding: "22px 24px 6px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
       <div>
         <h1 className="cm-display" style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>{title}</h1>
         {subtitle && <p style={{ fontSize: 13, color: t.textMuted, margin: "4px 0 0" }}>{subtitle}</p>}
@@ -1333,7 +1335,7 @@ function Feed({ t, profile, authUser, matches, posts, following, students, clubs
   return (
     <div>
       <TopBar t={t} title={`Good morning, ${profile.name?.split(" ")[0] || "there"} 👋`} subtitle="Your campus. Your community." onBell={onBell} />
-      <div style={{ padding: "6px 24px" }}>
+      <div className="cm-page-gutter cm-home-page">
         {authUser ? <NativeStories me={authUser} t={t} onCreate={onCreateStory} /> : <StoriesRow t={t} profile={profile} onOpen={onOpenStory} />}
 
         <AnnouncementsRow t={t} />
@@ -1492,7 +1494,7 @@ function SwipeCard({ t, student, onDecision, isTop, dragState, setDragState }) {
         background: "linear-gradient(0deg, rgba(0,0,0,0.75), transparent)",
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-          <span style={{ color: "#fff", fontWeight: 700, fontSize: 21, fontFamily: "Space Grotesk, sans-serif" }}>{student.name}, {student.age}</span>
+          <span style={{ color: "#fff", fontWeight: 700, fontSize: 21, fontFamily: "Space Grotesk, sans-serif" }}>{student.name}{student.age ? `, ${student.age}` : ""}</span>
           {student.verificationStatus === "college_verified" && <CheckCircle2 size={16} color={TOKENS.super} aria-label="College verified" />}
         </div>
         <div style={{ color: "rgba(255,255,255,0.85)", fontSize: 13, marginBottom: 6 }}>{student.branch} • {student.year}</div>
@@ -1511,62 +1513,109 @@ function SwipeCard({ t, student, onDecision, isTop, dragState, setDragState }) {
 function Discover({ t, profile, onMatch, onServerMatch, authUser }) {
   const [filter, setFilter] = useState("All");
   const [liveCandidates, setLiveCandidates] = useState(null);
+  const [loading, setLoading] = useState(Boolean(authUser));
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const pool = useMemo(() => {
     if (authUser) return liveCandidates || [];
     return filter === "All" ? STUDENTS : STUDENTS.filter((s) => s.college === filter);
   }, [authUser, filter, liveCandidates]);
   const [index, setIndex] = useState(0);
   const [dragState, setDragState] = useState({ x: 0, y: 0 });
-  const [flash, setFlash] = useState(null);
 
-  useEffect(() => setIndex(0), [filter]);
+  useEffect(() => {
+    setIndex(0);
+    setNotice("");
+  }, [filter]);
 
   // Authenticated discovery is server-owned; demo candidates are guest-only.
   useEffect(() => {
     if (!authUser) return;
+    let active = true;
+    setLoading(true);
+    setError("");
     cmApi.fetchDiscoverCandidates(filter === "All" ? undefined : filter)
-      .then((list) => setLiveCandidates((list || []).map(adaptApiStudent)))
-      .catch(() => setLiveCandidates([]));
+      .then((list) => {
+        if (active) setLiveCandidates((list || []).map(adaptApiStudent));
+      })
+      .catch((requestError) => {
+        if (!active) return;
+        setLiveCandidates([]);
+        setError(requestError.response?.data?.message || "Could not load students. Please retry.");
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => { active = false; };
   }, [authUser, filter]);
 
   const current = pool[index];
   const next = pool[index + 1];
 
   const decide = async (type) => {
-    if (!current) return;
+    if (!current || busy) return;
+    setBusy(true);
+    setError("");
+    setNotice("");
     setDragState({ x: type === "pass" ? -600 : type === "like" ? 600 : 0, y: type === "super" ? -700 : dragState.y });
-    setFlash(type);
 
     if (authUser && liveCandidates) {
-      // Real path: record the swipe with the backend and only show the
-      // match animation if the server confirms it was mutual.
       const apiAction = type === "super" ? "super_like" : type === "like" ? "like" : "pass";
       try {
         const result = await cmApi.swipe(current.id, apiAction);
-        if (result?.matched) onServerMatch(current);
-      } catch (_) { /* best-effort — swiping still advances the deck locally */ }
+        if (result?.matched) onServerMatch(current, result.match);
+        else if (type !== "pass") setNotice(`Like sent to ${current.name}. You'll match when they like you back.`);
+      } catch (requestError) {
+        setDragState({ x: 0, y: 0 });
+        setError(requestError.response?.data?.message || "Swipe could not be saved. Check your connection and try again.");
+        setBusy(false);
+        return;
+      }
     } else if (type !== "pass" && current.matchesBack) {
-      // Demo/offline path: use the local matchesBack flag on seed data.
       onMatch(current);
     }
 
     setTimeout(() => {
       setIndex((i) => i + 1);
       setDragState({ x: 0, y: 0 });
-      setFlash(null);
+      setBusy(false);
     }, 260);
   };
 
+  const reviewPassedProfiles = async () => {
+    if (!authUser || busy) {
+      setIndex(0);
+      return;
+    }
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const result = await cmApi.resetPassedSwipes();
+      const list = await cmApi.fetchDiscoverCandidates(filter === "All" ? undefined : filter);
+      setLiveCandidates((list || []).map(adaptApiStudent));
+      setIndex(0);
+      setNotice(result.resetCount ? "Passed profiles are available again." : "No passed profiles to review yet.");
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || "Could not reset passed profiles. Please retry.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const compat = (s) => {
-    const shared = s.interests.filter((i) => profile.interests.includes(i)).length;
+    const shared = (s.interests || []).filter((i) => (profile.interests || []).includes(i)).length;
     const base = 46 + shared * 12 + (s.college === profile.college ? 8 : 0);
     return Math.min(97, base);
   };
 
   return (
     <div>
-      <TopBar t={t} title="Discover" subtitle="Find friends, teammates & study partners across campus" />
-      <div style={{ padding: "10px 24px" }}>
+      <TopBar t={t} title="Matching" subtitle="Find friends, teammates & study partners across campus" />
+      <div className="cm-page-gutter cm-discover-page">
+        {error && <div className="cm-match-notice error" role="alert">{error}</div>}
+        {notice && <div className="cm-match-notice" role="status">{notice}</div>}
         <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 12 }}>
           <CollegePill code="All" active={filter === "All"} onClick={() => setFilter("All")} />
           {COLLEGES.map((c) => (
@@ -1574,13 +1623,16 @@ function Discover({ t, profile, onMatch, onServerMatch, authUser }) {
           ))}
         </div>
 
-        <div style={{ position: "relative", height: 520, maxWidth: 380, margin: "0 auto" }}>
-          {!current && (
+        <div className="cm-discover-deck" style={{ position: "relative", height: 520, maxWidth: 380, margin: "0 auto" }}>
+          {loading && (
+            <div className="cm-feature-loading">Loading students…</div>
+          )}
+          {!loading && !current && (
             <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", gap: 8, animation: "cmFadeUp .4s ease both" }}>
               <span style={{ fontSize: 40 }}>❤️</span>
-              <div style={{ fontWeight: 700, fontSize: 16, color: t.text }}>No matches yet.</div>
-              <div style={{ fontSize: 13, color: t.textMuted }}>Keep exploring your campus!</div>
-              <GhostButton t={t} onClick={() => setIndex(0)} style={{ marginTop: 8 }}>Start over</GhostButton>
+              <div style={{ fontWeight: 700, fontSize: 16, color: t.text }}>No new profiles right now.</div>
+              <div style={{ fontSize: 13, color: t.textMuted }}>You can review students you previously passed.</div>
+              <GhostButton t={t} disabled={busy} onClick={reviewPassedProfiles} style={{ marginTop: 8 }}>{busy ? "Loading…" : "Review passed profiles"}</GhostButton>
             </div>
           )}
           {next && <SwipeCard t={t} student={next} isTop={false} dragState={{ x: 0, y: 0 }} setDragState={() => {}} onDecision={() => {}} />}
@@ -1601,9 +1653,9 @@ function Discover({ t, profile, onMatch, onServerMatch, authUser }) {
             </div>
 
             <div style={{ display: "flex", justifyContent: "center", gap: 18, marginTop: 20 }}>
-              <RoundBtn color={TOKENS.like} icon={X} onClick={() => decide("pass")} />
-              <RoundBtn color={TOKENS.amber} icon={Star} onClick={() => decide("super")} size={46} />
-              <RoundBtn color={TOKENS.super} icon={Heart} onClick={() => decide("like")} />
+              <RoundBtn disabled={busy} color={TOKENS.like} icon={X} onClick={() => decide("pass")} />
+              <RoundBtn disabled={busy} color={TOKENS.amber} icon={Star} onClick={() => decide("super")} size={46} />
+              <RoundBtn disabled={busy} color={TOKENS.super} icon={Heart} onClick={() => decide("like")} />
             </div>
           </>
         )}
@@ -1612,12 +1664,12 @@ function Discover({ t, profile, onMatch, onServerMatch, authUser }) {
   );
 }
 
-function RoundBtn({ color, icon: Icon, onClick, size = 56 }) {
+function RoundBtn({ color, icon: Icon, onClick, size = 56, disabled = false }) {
   return (
-    <button onClick={onClick} style={{
+    <button disabled={disabled} onClick={onClick} style={{
       width: size, height: size, borderRadius: "50%", border: `2px solid ${color}`,
       background: "transparent", display: "flex", alignItems: "center", justifyContent: "center",
-      cursor: "pointer", color, transition: "transform .12s ease",
+      cursor: disabled ? "wait" : "pointer", color, transition: "transform .12s ease", opacity: disabled ? 0.55 : 1,
     }}
       onMouseDown={(e) => (e.currentTarget.style.transform = "scale(.9)")}
       onMouseUp={(e) => (e.currentTarget.style.transform = "scale(1)")}
@@ -1798,7 +1850,7 @@ function Explore({ t, profile, posts, following, onToggleFollow, onLike, onSave,
   return (
     <div>
       <TopBar t={t} title="Explore" subtitle="Posts, reels, students, clubs & events across every college" />
-      <div style={{ padding: "10px 24px" }}>
+      <div className="cm-page-gutter cm-explore-page">
         {authUser && (livePosts || liveReels || liveStudents || loadingLive) && (
           <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: t.textFaint, marginBottom: 8 }}>
             {loadingLive ? <Loader2 size={11} style={{ animation: "cmSpin 1s linear infinite" }} /> : <span style={{ width: 6, height: 6, borderRadius: "50%", background: TOKENS.super }} />}
@@ -2194,7 +2246,7 @@ function Matches({ t, matches, onOpenChat }) {
   return (
     <div>
       <TopBar t={t} title="Matches" subtitle={`${matches.length} mutual match${matches.length === 1 ? "" : "es"}`} />
-      <div style={{ padding: "10px 24px" }}>
+      <div className="cm-page-gutter cm-matches-page">
         {matches.length === 0 ? (
           <div style={{ textAlign: "center", padding: "60px 0", color: t.textMuted }}>
             <div style={{ fontSize: 40, marginBottom: 8 }}>💬</div>
@@ -2294,7 +2346,7 @@ function Profile({ t, profile, posts, reels, following, onBell, authUser, onPhot
   return (
     <div>
       <TopBar t={t} title="My Profile" onBell={onBell} />
-      <div style={{ padding: "10px 24px", maxWidth: 480 }}>
+      <div className="cm-page-gutter cm-profile-page" style={{ maxWidth: 480 }}>
         {toast && (
           <div style={{ marginBottom: 12, padding: "10px 14px", borderRadius: 12, background: t.surfaceStrong, border: `1px solid ${t.border}`, fontSize: 12.5, color: t.text, animation: "cmPop .2s ease both" }}>
             {toast}
@@ -2687,10 +2739,16 @@ export default function CampusMateApp() {
     });
   }, [view, authUser]);
 
-  const handleMatch = (student) => {
-    setMatches((m) => (m.find((x) => x.id === student.id) ? m : [student, ...m]));
+  const handleMatch = (student, matchRecord) => {
+    setMatches((items) => {
+      const matchId = matchRecord?._id;
+      if (matchId && items.some((item) => String(item._id) === String(matchId))) return items;
+      if (!matchId && items.some((item) => item.id === student.id)) return items;
+      return matchId
+        ? [{ _id: matchId, user: student, createdAt: matchRecord.createdAt || new Date().toISOString() }, ...items]
+        : [student, ...items];
+    });
     setMatchModal(student);
-    if (authUser) cmApi.swipe(student.id, "like").catch(() => {});
   };
 
   const toggleFollow = (id) => {
