@@ -1652,10 +1652,10 @@ function Discover({ t, profile, onMatch, onServerMatch, authUser }) {
               </div>
             </div>
 
-            <div style={{ display: "flex", justifyContent: "center", gap: 18, marginTop: 20 }}>
-              <RoundBtn disabled={busy} color={TOKENS.like} icon={X} onClick={() => decide("pass")} />
-              <RoundBtn disabled={busy} color={TOKENS.amber} icon={Star} onClick={() => decide("super")} size={46} />
-              <RoundBtn disabled={busy} color={TOKENS.super} icon={Heart} onClick={() => decide("like")} />
+            <div className="cm-match-actions" style={{ display: "flex", justifyContent: "center", gap: 18, marginTop: 20, "--cm-action-bg": t.bg2, "--cm-action-border": t.border }}>
+              <RoundBtn label="Pass" disabled={busy} color={TOKENS.like} icon={X} onClick={() => decide("pass")} />
+              <RoundBtn label="Super Like" disabled={busy} color={TOKENS.amber} icon={Star} onClick={() => decide("super")} size={46} />
+              <RoundBtn label="Like" disabled={busy} color={TOKENS.super} icon={Heart} onClick={() => decide("like")} />
             </div>
           </>
         )}
@@ -1664,18 +1664,21 @@ function Discover({ t, profile, onMatch, onServerMatch, authUser }) {
   );
 }
 
-function RoundBtn({ color, icon: Icon, onClick, size = 56, disabled = false }) {
+function RoundBtn({ color, icon: Icon, onClick, size = 56, disabled = false, label }) {
   return (
-    <button disabled={disabled} onClick={onClick} style={{
-      width: size, height: size, borderRadius: "50%", border: `2px solid ${color}`,
-      background: "transparent", display: "flex", alignItems: "center", justifyContent: "center",
-      cursor: disabled ? "wait" : "pointer", color, transition: "transform .12s ease", opacity: disabled ? 0.55 : 1,
-    }}
-      onMouseDown={(e) => (e.currentTarget.style.transform = "scale(.9)")}
-      onMouseUp={(e) => (e.currentTarget.style.transform = "scale(1)")}
-    >
-      <Icon size={size * 0.4} fill={Icon === Heart ? color : "none"} />
-    </button>
+    <div className="cm-match-action">
+      <button aria-label={label} title={label} disabled={disabled} onClick={onClick} style={{
+        width: size, height: size, borderRadius: "50%", border: `2px solid ${color}`,
+        background: "transparent", display: "flex", alignItems: "center", justifyContent: "center",
+        cursor: disabled ? "wait" : "pointer", color, transition: "transform .12s ease", opacity: disabled ? 0.55 : 1,
+      }}
+        onMouseDown={(e) => (e.currentTarget.style.transform = "scale(.9)")}
+        onMouseUp={(e) => (e.currentTarget.style.transform = "scale(1)")}
+      >
+        <Icon size={size * 0.4} fill={Icon === Heart ? color : "none"} />
+      </button>
+      <span style={{ color }}>{label}</span>
+    </div>
   );
 }
 
