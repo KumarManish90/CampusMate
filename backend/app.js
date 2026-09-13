@@ -24,13 +24,17 @@ const eventRoutes = require("./routes/eventRoutes");
 const miscRoutes = require("./routes/miscRoutes"); // notifications, search, hashtags, reports
 const adminRoutes = require("./routes/adminRoutes");
 
+const BUILT_IN_TRUSTED_ORIGINS = [
+  "https://campusmate-git-gemini-updates-bodom-squads.vercel.app",
+];
+
 /**
  * Resolves allowed CORS origins from CLIENT_URL (comma-separated for
  * multiple environments, e.g. a Vercel preview + production domain).
  * Deliberately never falls back to "*" — wildcard origin + credentials:true
  * is both rejected by browsers and a real security footgun, so a missing
- * CLIENT_URL fails loudly in production and only defaults to the local Vite
- * dev server outside production.
+ * The stable first-party preview is always trusted in production; extra
+ * deployments can be supplied through CLIENT_URL/FRONTEND_URL.
  */
 function resolveAllowedOrigins() {
   const configured = (process.env.CLIENT_URL || process.env.FRONTEND_URL || "")
@@ -38,15 +42,11 @@ function resolveAllowedOrigins() {
     .map((o) => o.trim())
     .filter(Boolean);
 
-  if (configured.length > 0) return configured;
-
   if (process.env.NODE_ENV === "production") {
-    console.error(
-      "[cors] CLIENT_URL is not set. Refusing to start with an open CORS policy in production — " +
-      "set CLIENT_URL to your deployed frontend origin(s), comma-separated if more than one."
-    );
-    process.exit(1);
+    return [...new Set([...configured, ...BUILT_IN_TRUSTED_ORIGINS])];
   }
+
+  if (configured.length > 0) return configured;
 
   console.warn("[cors] CLIENT_URL not set — defaulting to http://localhost:5173 for local development only.");
   return ["http://localhost:5173"];
@@ -69,7 +69,9 @@ function createApp() {
     origin: (origin, callback) => {
       // allow same-origin/non-browser requests (no Origin header, e.g. curl, health checks)
       if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
-      callback(new Error(`Origin ${origin} is not allowed by CORS.`));
+      const corsError = new Error(`Origin ${origin} is not allowed by CORS.`);
+      corsError.status = 403;
+      callback(corsError);
     },
     credentials: true,
   }));
