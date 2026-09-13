@@ -16,3 +16,9 @@ test("Socket.IO client and server event contract is canonical", () => {
   assert.doesNotMatch(native, /join_match|new_message/);
 });
 test("responsive CSS contains no inline-style attribute selector hacks", () => assert.doesNotMatch(css, /\[style\*=/));
+test("mobile layout resets the viewport and collapses explore grids", () => {
+  assert.match(css, /html,body,#root\{[^}]*margin:0/);
+  assert.match(css, /\.cm-explore-grid\{grid-template-columns:minmax\(0,1fr\)!important\}/);
+  assert.match(app, /className="cm-explore-grid"/);
+  assert.match(app, /className="cm-scroll-row cm-explore-tabs"/);
+});
