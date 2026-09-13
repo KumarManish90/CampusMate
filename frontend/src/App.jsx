@@ -1877,7 +1877,7 @@ function Explore({ t, profile, posts, following, onToggleFollow, onLike, onSave,
             {hashtagHits.map((h) => <HashtagPill key={h} tag={h} t={t} onClick={() => {}} />)}
           </div>
         )}
-        <div style={{ display: "flex", gap: 8, marginBottom: 16, overflowX: "auto" }}>
+        <div className="cm-scroll-row cm-explore-tabs" style={{ display: "flex", gap: 8, marginBottom: 16, overflowX: "auto" }}>
           {[
             { k: "students", label: "Students" },
             { k: "posts", label: "Posts" },
@@ -1896,7 +1896,7 @@ function Explore({ t, profile, posts, following, onToggleFollow, onLike, onSave,
 
         {tab === "posts" && (
           <div>
-            <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 12 }}>
+            <div className="cm-scroll-row" style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 12 }}>
               {FEED_FILTERS.map((f) => (
                 <button key={f} onClick={() => { setPostFilter(f); setHashtagFocus(null); }} style={{
                   padding: "8px 15px", borderRadius: 999, fontSize: 12.5, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap",
@@ -1934,11 +1934,11 @@ function Explore({ t, profile, posts, following, onToggleFollow, onLike, onSave,
 
         {tab === "students" && (
           <>
-            <div style={{ display: "flex", gap: 8, marginBottom: 14, overflowX: "auto" }}>
+            <div className="cm-scroll-row" style={{ display: "flex", gap: 8, marginBottom: 14, overflowX: "auto" }}>
               <CollegePill code="All" active={filter === "All"} onClick={() => setFilter("All")} />
               {COLLEGES.map((c) => <CollegePill key={c.code} code={c.code} active={filter === c.code} onClick={() => setFilter(c.code)} />)}
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px,1fr))", gap: 14 }}>
+            <div className="cm-explore-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px,1fr))", gap: 14 }}>
               {list.map((s) => (
                 <GlassCard key={s.id} t={t} style={{ padding: 16 }}>
                   <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
@@ -1957,7 +1957,7 @@ function Explore({ t, profile, posts, following, onToggleFollow, onLike, onSave,
         )}
 
         {tab === "clubs" && (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(230px,1fr))", gap: 14 }}>
+          <div className="cm-explore-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(230px,1fr))", gap: 14 }}>
             {clubList.map((c) => (
               <GlassCard key={c.id} t={t} style={{ padding: 18, transition: "transform .15s ease" }}
                 onClick={(e) => { e.currentTarget.style.transform = "translateY(-3px)"; }}>
@@ -1982,7 +1982,7 @@ function Explore({ t, profile, posts, following, onToggleFollow, onLike, onSave,
 
         {tab === "events" && (
           <div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(230px,1fr))", gap: 14 }}>
+            <div className="cm-explore-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(230px,1fr))", gap: 14 }}>
               {eventList.map((e) => <EventCard key={e.id} t={t} e={e} />)}
             </div>
             {!authUser && <><h3 className="cm-display" style={{ fontSize: 16, fontWeight: 700, marginTop: 28, marginBottom: 12 }}>Hackathon 2026 — schedule</h3>
