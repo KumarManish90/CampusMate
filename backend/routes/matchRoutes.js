@@ -1,4 +1,5 @@
 const express = require("express");
+const mongoose = require("mongoose");
 const User = require("../models/User");
 const { Swipe, Match } = require("../models/Social");
 const { Notification } = require("../models/Campus");
@@ -16,7 +17,11 @@ router.get(
     const { limit } = paginate(req, 20, 40);
 
     const swiped = (await Swipe.find({ from: req.user._id }).select("to")).map((s) => s.to);
-    const filter = { _id: { $ne: req.user._id, $nin: swiped } };
+    const filter = {
+      _id: { $ne: req.user._id, $nin: swiped },
+      isActive: true,
+      isSuspended: { $ne: true },
+    };
     if (college && college !== "All") filter.collegeName = college;
 
     const candidates = await User.find(filter).limit(limit);
@@ -30,12 +35,19 @@ router.post(
   requireAuth,
   asyncHandler(async (req, res) => {
     const { to, action } = req.body;
-    if (!to || !["like", "pass", "super_like"].includes(action)) {
+    if (!to || !mongoose.isValidObjectId(to) || !["like", "pass", "super_like"].includes(action)) {
       return res.status(400).json({ message: "A target user and valid action are required." });
     }
     if (String(to) === String(req.user._id)) return res.status(400).json({ message: "You can't swipe on yourself." });
 
-    await Swipe.findOneAndUpdate({ from: req.user._id, to }, { from: req.user._id, to, action }, { upsert: true });
+    const target = await User.exists({ _id: to, isActive: true, isSuspended: { $ne: true } });
+    if (!target) return res.status(404).json({ message: "This student is no longer available." });
+
+    await Swipe.findOneAndUpdate(
+      { from: req.user._id, to },
+      { $set: { action } },
+      { upsert: true, runValidators: true, setDefaultsOnInsert: true }
+    );
 
     let matched = null;
     if (action !== "pass") {
@@ -66,6 +78,16 @@ router.post(
     }
 
     res.json({ matched: !!matched, match: matched });
+  })
+);
+
+// DELETE /api/swipes/passed — allow a user to review profiles they passed on.
+router.delete(
+  "/swipes/passed",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const result = await Swipe.deleteMany({ from: req.user._id, action: "pass" });
+    res.json({ resetCount: result.deletedCount || 0 });
   })
 );
 
