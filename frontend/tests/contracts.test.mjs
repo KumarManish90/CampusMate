@@ -21,6 +21,10 @@ test("mobile layout resets the viewport and collapses explore grids", () => {
   assert.match(css, /\.cm-explore-grid\{grid-template-columns:minmax\(0,1fr\)!important\}/);
   assert.match(app, /className="cm-explore-grid"/);
   assert.match(app, /className="cm-scroll-row cm-explore-tabs"/);
+  assert.match(app, /className="cm-app-shell"/);
+  assert.match(css, /\.cm-sidebar\{display:none!important\}/);
+  assert.match(css, /\.cm-bottomnav\{display:flex!important/);
+  assert.match(css, /\.cm-app-content\{display:block;width:100%!important;max-width:100vw/);
 });
 test("login skips signup onboarding while new accounts can complete it", () => {
   assert.match(app, /isNewAccount: mode === "register"/);

@@ -1161,7 +1161,7 @@ function NotificationsPanel({ t, onClose, authUser }) {
 
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 90 }} onClick={onClose}>
-      <div onClick={(e) => e.stopPropagation()} style={{
+      <div className="cm-notifications-panel" onClick={(e) => e.stopPropagation()} style={{
         position: "absolute", top: 66, right: 20, width: 320, maxWidth: "88vw",
         background: t.bg2, border: `1px solid ${t.border}`, borderRadius: 18, overflow: "hidden",
         boxShadow: "0 20px 50px -15px rgba(0,0,0,0.4)", animation: "cmPop .2s ease both",
@@ -1208,7 +1208,7 @@ const SIDEBAR_ITEMS = [
 
 function Shell({ t, dark, setDark, tab, setTab, children, unread, onCreate, connectionStatus, onBrandClick }) {
   return (
-    <div style={{ minHeight: "100vh", background: t.bg, color: t.text, display: "flex" }}>
+    <div className="cm-app-shell" style={{ minHeight: "100vh", background: t.bg, color: t.text, display: "flex" }}>
       {/* desktop sidebar */}
       <div className="cm-sidebar" style={{
         width: 220, borderRight: `1px solid ${t.border}`, padding: "22px 14px",
@@ -1305,12 +1305,6 @@ function Shell({ t, dark, setDark, tab, setTab, children, unread, onCreate, conn
         })}
       </div>
 
-      <style>{`
-        @media (max-width: 860px) {
-          .cm-sidebar { display: none; }
-          .cm-bottomnav { display: flex !important; }
-        }
-      `}</style>
     </div>
   );
 }
