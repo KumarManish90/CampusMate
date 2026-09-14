@@ -80,8 +80,14 @@ test("login resets to Home and mobile nav exposes Explore instead of Match", () 
 test("profile is centered, responsive and isolates partial API failures", () => {
   assert.match(native, /Promise\.allSettled/);
   assert.match(native, /className="cm-profile-card"/);
-  assert.match(css, /\.cm-profile-card\{width:min\(100%,620px\)/);
+  assert.match(css, /\.cm-profile-card\{width:min\(100%,780px\)/);
   assert.match(css, /\.cm-profile-summary\{flex-direction:column/);
+  assert.match(native, /cm-profile-cover/);
+  assert.match(native, /cm-profile-stats/);
+  assert.match(native, /cm-profile-interests/);
+  const profileSource = native.slice(native.indexOf("export function NativeProfile"), native.indexOf("function MediaGrid"));
+  assert.doesNotMatch(profileSource, />Message</);
+  assert.doesNotMatch(profileSource, />Connect</);
 });
 
 test("logged-in dashboard uses responsive interactive sections", () => {

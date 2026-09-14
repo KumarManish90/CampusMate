@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Bookmark, CheckCheck, ChevronLeft, ChevronRight, Film, Heart, Image as ImageIcon, Loader2, LogOut, Paperclip, Pencil, Play, RefreshCw, Search, Send, Shield, Smile, Trash2, Volume2, VolumeX, Wifi, WifiOff, X } from "lucide-react";
+import { ArrowLeft, BadgeCheck, Bookmark, Camera, CheckCheck, ChevronLeft, ChevronRight, Film, Heart, Image as ImageIcon, Loader2, LogOut, MapPin, Paperclip, Pencil, Play, RefreshCw, Search, Send, Shield, Smile, Trash2, Volume2, VolumeX, Wifi, WifiOff, X } from "lucide-react";
 import * as api from "./api/client";
 import { disconnectChatSocket, getChatSocket } from "./api/chatSocket";
 import { showToast } from "./utils/toast.js";
@@ -141,7 +141,31 @@ export function NativeProfile({ me, onUserChange, onLogout }) {
   const savedPosts = Array.isArray(saved?.posts) ? saved.posts : [], savedReels = Array.isArray(saved?.reels) ? saved.reels : [];
   const items = tab === "posts" ? posts : tab === "reels" ? reels : [...savedPosts, ...savedReels];
   const profileTabs = [{ key: "posts", label: "Posts" }, { key: "reels", label: "Reels" }, { key: "saved", label: "Saved" }, { key: "about", label: "About" }];
-  return <section className="cm-native-profile"><div className="cm-profile-card"><div className="cm-profile-summary"><label title="Change profile photo" style={{cursor:"pointer"}}><Avatar user={safeMe} size={92}/><input hidden type="file" accept="image/*" onChange={photo}/></label><div><h2>{safeMe.name || "CampusMate user"}</h2><p>{safeMe.bio || "Add a bio to introduce yourself."}</p><small>{[safeMe.branch, safeMe.year].filter(Boolean).join(" · ") || "Complete your profile"}</small></div></div><nav aria-label="Profile sections">{profileTabs.map(item => <button className={tab === item.key ? "active" : ""} onClick={() => setTab(item.key)} key={item.key}>{item.label}</button>)}</nav><div className="cm-profile-content">{loading ? <FeatureLoading/> : <>{error && <div className="cm-inline-error">{error}</div>}{tab === "about" ? <div className="cm-profile-actions"><button onClick={() => setEdit(true)}><Pencil/> Edit profile</button><button type="button"><Shield/> Privacy: {String(form.privacy || "campus")}</button>{safeMe.profilePhoto?.url && <button onClick={() => api.removeProfilePhoto(safeMe._id).then(user => user && onUserChange(user)).catch(err => showToast(errorText(err), "error"))}><Trash2/> Remove profile photo</button>}<button onClick={logout}><LogOut/> Log out</button></div> : <MediaGrid items={items} reels={tab === "reels"}/>}</>}</div></div>{edit && <div className="cm-native-modal"><div className="cm-edit-profile"><header><strong>Edit profile</strong><button onClick={() => setEdit(false)}><X/></button></header>{["name","bio","branch","year","lookingFor","interests"].map(k => k === "bio" ? <textarea key={k} style={field} value={form[k] || ""} placeholder={k} onChange={e => setForm(f => ({ ...f, [k]: e.target.value }))}/> : <input key={k} style={field} value={form[k] || ""} placeholder={k} onChange={e => setForm(f => ({ ...f, [k]: e.target.value }))}/>)}<select style={field} value={form.privacy || "campus"} onChange={e => setForm(f => ({ ...f, privacy: e.target.value }))}><option value="campus">Campus</option><option value="public">Public</option><option value="private">Private</option></select><button style={button} onClick={save}>Save profile</button></div></div>}</section>;
+  const interests = Array.isArray(safeMe.interests) ? safeMe.interests : [];
+  const college = safeMe.collegeName || safeMe.college || "Add your college";
+  const meta = [safeMe.year, safeMe.branch].filter(Boolean);
+  const stats = [
+    { value: safeMe.followersCount || 0, label: "Followers" },
+    { value: safeMe.followingCount || 0, label: "Following" },
+    { value: posts.length, label: "Posts" },
+  ];
+  return <section className="cm-native-profile">
+    <div className="cm-profile-card">
+      <div className="cm-profile-cover" aria-hidden="true"><span>Build. Belong. Grow.</span></div>
+      <div className="cm-profile-identity">
+        <label className="cm-profile-photo" title="Change profile photo"><Avatar user={safeMe} size={112}/><i><Camera size={15}/></i><input hidden type="file" accept="image/*" onChange={photo}/></label>
+        <button className="cm-profile-edit" onClick={() => setEdit(true)}><Pencil size={16}/> Edit profile</button>
+        <div className="cm-profile-name"><h2>{safeMe.name || "CampusMate user"}</h2>{safeMe.verificationStatus === "verified" && <BadgeCheck size={19} aria-label="Verified"/>}</div>
+        <div className="cm-profile-meta">{meta.map(value => <span key={value}>{value}</span>)}<span><MapPin size={13}/>{college}</span></div>
+        <p className="cm-profile-bio">{safeMe.bio || "Add a bio to introduce yourself to your campus community."}</p>
+        {interests.length > 0 && <div className="cm-profile-interests">{interests.slice(0, 6).map(interest => <span key={interest}>{interest}</span>)}</div>}
+        <div className="cm-profile-stats">{stats.map(stat => <div key={stat.label}><strong>{stat.value}</strong><span>{stat.label}</span></div>)}</div>
+      </div>
+      <nav aria-label="Profile sections">{profileTabs.map(item => <button className={tab === item.key ? "active" : ""} onClick={() => setTab(item.key)} key={item.key}>{item.label}</button>)}</nav>
+      <div className="cm-profile-content">{loading ? <FeatureLoading/> : <>{error && <div className="cm-inline-error">{error}</div>}{tab === "about" ? <div className="cm-profile-about"><div><strong>Looking for</strong><span>{safeMe.lookingFor || "Add what you are looking for"}</span></div><div><strong>College</strong><span>{college}</span></div><div className="cm-profile-actions"><button type="button"><Shield/> Privacy: {String(form.privacy || "campus")}</button>{safeMe.profilePhoto?.url && <button onClick={() => api.removeProfilePhoto(safeMe._id).then(user => user && onUserChange(user)).catch(err => showToast(errorText(err), "error"))}><Trash2/> Remove profile photo</button>}<button onClick={logout}><LogOut/> Log out</button></div></div> : <MediaGrid items={items} reels={tab === "reels"}/>}</>}</div>
+    </div>
+    {edit && <div className="cm-native-modal"><div className="cm-edit-profile"><header><strong>Edit profile</strong><button onClick={() => setEdit(false)}><X/></button></header>{["name","bio","branch","year","lookingFor","interests"].map(k => k === "bio" ? <textarea key={k} style={field} value={form[k] || ""} placeholder={k} onChange={e => setForm(f => ({ ...f, [k]: e.target.value }))}/> : <input key={k} style={field} value={form[k] || ""} placeholder={k} onChange={e => setForm(f => ({ ...f, [k]: e.target.value }))}/>)}<select style={field} value={form.privacy || "campus"} onChange={e => setForm(f => ({ ...f, privacy: e.target.value }))}><option value="campus">Campus</option><option value="public">Public</option><option value="private">Private</option></select><button style={button} onClick={save}>Save profile</button></div></div>}
+  </section>;
 }
 
 function MediaGrid({ items, reels }) { const safeItems = Array.isArray(items) ? items : []; return !safeItems.length ? <div className="cm-empty">No content yet.</div> : <div className="cm-profile-grid">{safeItems.map(x => { const media = api.resolveMediaUrl(x?.videoUrl || x?.thumbnailUrl || x?.media?.[0]?.url); return <div key={x?._id || media}>{media ? <img src={media} alt=""/> : reels ? <Film/> : <ImageIcon/>}</div>; })}</div>; }
