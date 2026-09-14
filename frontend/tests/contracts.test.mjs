@@ -35,6 +35,10 @@ test("chat exposes presence, emoji and media controls", () => {
   assert.match(native, /CHAT_EMOJIS/);
   assert.match(native, /image\/gif/);
   assert.match(native, /Paperclip/);
+  assert.match(native, /chat:typing/);
+  assert.match(native, /chat:read/);
+  assert.match(native, /cm-chat-search/);
+  assert.match(native, /messageAttempt/);
 });
 test("students can create communities and upcoming events", () => {
   assert.match(app, /Create campus community/);
@@ -78,4 +82,11 @@ test("profile is centered, responsive and isolates partial API failures", () => 
   assert.match(native, /className="cm-profile-card"/);
   assert.match(css, /\.cm-profile-card\{width:min\(100%,620px\)/);
   assert.match(css, /\.cm-profile-summary\{flex-direction:column/);
+});
+
+test("logged-in dashboard uses responsive interactive sections", () => {
+  assert.match(app, /cm-home-dashboard/);
+  assert.match(app, /cm-interactive-card/);
+  assert.match(css, /\.cm-home-dashboard\{display:grid/);
+  assert.match(css, /@media\(max-width:980px\)\{\.cm-home-dashboard\{grid-template-columns:1fr\}/);
 });

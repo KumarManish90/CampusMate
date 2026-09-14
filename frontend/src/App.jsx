@@ -344,9 +344,10 @@ function Badge({ children, color, style }) {
   );
 }
 
-function GlassCard({ t, children, style, onClick }) {
+function GlassCard({ t, children, style, onClick, className = "" }) {
   return (
     <div
+      className={className}
       onClick={onClick}
       style={{
         background: t.surface, border: `1px solid ${t.border}`,
@@ -1403,11 +1404,13 @@ function Feed({ t, profile, authUser, matches, posts, following, students, clubs
       <div className="cm-page-gutter cm-home-page">
         {authUser ? <NativeStories me={authUser} t={t} onCreate={onCreateStory} /> : <StoriesRow t={t} profile={profile} onOpen={onOpenStory} />}
 
+        <div className="cm-home-dashboard">
+        <section className="cm-home-overview">
         <AnnouncementsRow t={t} />
 
         <div className="cm-home-stats">
           {stats.map((s, i) => (
-            <GlassCard key={i} t={t} style={{ padding: 14, animation: `cmFadeUp .4s ease ${i * 0.06}s both` }}>
+            <GlassCard key={i} t={t} style={{ padding: 14, animation: `cmFadeUp .4s ease ${i * 0.06}s both` }} className="cm-interactive-card">
               <div style={{ width: 26, height: 26, borderRadius: 8, background: `${s.color}22`, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 8 }}>
                 <s.icon size={13} color={s.color} />
               </div>
@@ -1417,7 +1420,7 @@ function Feed({ t, profile, authUser, matches, posts, following, students, clubs
           ))}
         </div>
 
-        <GlassCard t={t} onClick={onGoDiscover} style={{ padding: 16, display: "flex", alignItems: "center", gap: 12, cursor: "pointer", marginBottom: 22, border: `1px solid ${TOKENS.primary}44` }}>
+        <GlassCard t={t} onClick={onGoDiscover} className="cm-interactive-card cm-home-match-cta" style={{ padding: 16, display: "flex", alignItems: "center", gap: 12, cursor: "pointer", marginBottom: 22, border: `1px solid ${TOKENS.primary}44` }}>
           <div style={{ width: 38, height: 38, borderRadius: 11, background: `${TOKENS.like}22`, display: "flex", alignItems: "center", justifyContent: "center" }}>
             <Heart size={18} color={TOKENS.like} />
           </div>
@@ -1428,13 +1431,15 @@ function Feed({ t, profile, authUser, matches, posts, following, students, clubs
           <ChevronRight size={16} color={t.textFaint} />
         </GlassCard>
 
-        <div style={{ marginTop: 6, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        </section>
+        <section className="cm-home-discovery">
+        <div className="cm-home-section-head">
           <h3 className="cm-display" style={{ fontSize: 16, fontWeight: 700 }}>Recommended Students</h3>
           <button onClick={() => setTab("explore")} style={{ background: "none", border: "none", color: TOKENS.primary, fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>See all</button>
         </div>
-        <div style={{ display: "flex", gap: 12, overflowX: "auto", paddingBottom: 8, marginTop: 10 }}>
+        <div className="cm-home-card-row">
           {students.slice(0, 6).map((s) => (
-            <GlassCard key={s.id} t={t} style={{ padding: 14, minWidth: 150, flexShrink: 0, textAlign: "center" }}>
+            <GlassCard key={s.id} t={t} className="cm-interactive-card cm-student-mini-card" style={{ padding: 14, minWidth: 150, flexShrink: 0, textAlign: "center" }}>
               <div style={{ display: "flex", justifyContent: "center" }}><Avatar name={s.name} color={collegeColor(s.college)} size={48} /></div>
               <div style={{ fontWeight: 700, fontSize: 12.5, color: t.text, marginTop: 8 }}>{s.name}</div>
               <div style={{ fontSize: 11, color: t.textMuted }}>{s.college}</div>
@@ -1449,22 +1454,27 @@ function Feed({ t, profile, authUser, matches, posts, following, students, clubs
           {students.length === 0 && <p style={{ color: t.textMuted, fontSize: 12.5 }}>No student recommendations yet.</p>}
         </div>
 
-        <div style={{ marginTop: 22, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        </section>
+        <section className="cm-home-campus-grid">
+        <div className="cm-home-campus-block">
+        <div className="cm-home-section-head">
           <h3 className="cm-display" style={{ fontSize: 16, fontWeight: 700 }}>Upcoming Events</h3>
           <button onClick={() => setTab("explore")} style={{ background: "none", border: "none", color: TOKENS.primary, fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>See all</button>
         </div>
-        <div style={{ display: "flex", gap: 12, overflowX: "auto", paddingBottom: 8, marginTop: 10 }}>
+        <div className="cm-home-card-row">
           {events.slice(0, 4).map((e) => <EventCard key={e.id} t={t} e={e} compact />)}
           {events.length === 0 && <p style={{ color: t.textMuted, fontSize: 12.5 }}>No upcoming events yet.</p>}
         </div>
 
-        <div style={{ marginTop: 22, marginBottom: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        </div>
+        <div className="cm-home-campus-block">
+        <div className="cm-home-section-head">
           <h3 className="cm-display" style={{ fontSize: 16, fontWeight: 700 }}>Campus Communities</h3>
           <button onClick={() => setTab("explore")} style={{ background: "none", border: "none", color: TOKENS.primary, fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>See all</button>
         </div>
-        <div style={{ display: "flex", gap: 12, overflowX: "auto", paddingBottom: 20 }}>
+        <div className="cm-home-card-row">
           {clubs.slice(0, 4).map((c) => (
-            <GlassCard key={c.id} t={t} style={{ padding: 14, minWidth: 170, flexShrink: 0 }}>
+            <GlassCard key={c.id} t={t} className="cm-interactive-card" style={{ padding: 14, minWidth: 170, flexShrink: 0 }}>
               <div style={{ width: 32, height: 32, borderRadius: 9, background: `${TOKENS.primary}22`, display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <c.icon size={15} color={TOKENS.primary} />
               </div>
@@ -1473,6 +1483,9 @@ function Feed({ t, profile, authUser, matches, posts, following, students, clubs
             </GlassCard>
           ))}
           {clubs.length === 0 && <p style={{ color: t.textMuted, fontSize: 12.5 }}>No campus communities yet.</p>}
+        </div>
+        </div>
+        </section>
         </div>
       </div>
     </div>
