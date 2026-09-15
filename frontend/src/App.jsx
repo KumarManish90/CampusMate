@@ -1350,7 +1350,7 @@ function Shell({ t, dark, setDark, tab, setTab, children, unread, onCreate, conn
   );
 }
 
-function TopBar({ t, title, subtitle, onBell, onBrandClick }) {
+function TopBar({ t, title, subtitle, onBell, onBrandClick, onSearch, user }) {
   return (
     <div className="cm-topbar" style={{ padding: "22px 24px 6px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
       <div className="cm-topbar-main">
@@ -1360,10 +1360,7 @@ function TopBar({ t, title, subtitle, onBell, onBrandClick }) {
           {subtitle && <p style={{ fontSize: 13, color: t.textMuted, margin: "4px 0 0" }}>{subtitle}</p>}
         </div>
       </div>
-      {onBell && <button onClick={onBell} style={{ width: 38, height: 38, borderRadius: 12, border: `1px solid ${t.border}`, background: t.surface, display: "flex", alignItems: "center", justifyContent: "center", position: "relative", cursor: "pointer" }}>
-        <Bell size={16} color={t.text} />
-        <span style={{ position: "absolute", top: -3, right: -3, width: 8, height: 8, borderRadius: "50%", background: TOKENS.like, border: `2px solid ${t.bg}` }} />
-      </button>}
+      {onBell && <div className="cm-home-header-actions"><button type="button" aria-label="Open Explore search" onClick={onSearch}><Search size={16}/></button><button type="button" onClick={onBell} aria-label="Notifications"><Bell size={16}/><span/></button><span className="cm-home-header-avatar"><Avatar name={user?.name || title || "You"} color={TOKENS.primary} size={34} photoUrl={cmApi.resolveMediaUrl(user?.profilePhoto?.url)}/></span></div>}
     </div>
   );
 }
@@ -1392,49 +1389,28 @@ function AnnouncementsRow({ t }) {
 
 function Feed({ t, profile, authUser, matches, posts, following, students, clubs, events, onToggleFollow, onLike, onSave, onOpenComments,
                 onOpenStory, onBell, onBrandClick, setTab, onGoDiscover, onCreateStory }) {
-  const stats = [
-    { icon: Heart, label: "Matches", value: matches.length, color: TOKENS.like },
-    { icon: MessageCircle, label: "Chats", value: matches.length, color: TOKENS.super },
-    { icon: Users, label: "Following", value: following.length, color: TOKENS.primary },
-  ];
+  const featuredEvent = events[0];
+  const trendingPost = posts[0];
+  const trendingClub = clubs[0];
 
   return (
     <div>
-      <TopBar t={t} title={`Good morning, ${profile.name?.split(" ")[0] || "there"} 👋`} subtitle="Your campus. Your community." onBell={onBell} onBrandClick={onBrandClick} />
+      <TopBar t={t} title={`Good morning, ${profile.name?.split(" ")[0] || "there"} 👋`} subtitle="Your campus. Your community." onBell={onBell} onBrandClick={onBrandClick} onSearch={() => setTab("explore")} user={authUser} />
       <div className="cm-page-gutter cm-home-page">
-        {authUser ? <NativeStories me={authUser} t={t} onCreate={onCreateStory} /> : <StoriesRow t={t} profile={profile} onOpen={onOpenStory} />}
+        <section className="cm-home-stories">{authUser ? <NativeStories me={authUser} t={t} onCreate={onCreateStory} /> : <StoriesRow t={t} profile={profile} onOpen={onOpenStory} />}</section>
 
         <div className="cm-home-dashboard">
         <section className="cm-home-overview">
-        <AnnouncementsRow t={t} />
-
-        <div className="cm-home-stats">
-          {stats.map((s, i) => (
-            <GlassCard key={i} t={t} style={{ padding: 14, animation: `cmFadeUp .4s ease ${i * 0.06}s both` }} className="cm-interactive-card">
-              <div style={{ width: 26, height: 26, borderRadius: 8, background: `${s.color}22`, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 8 }}>
-                <s.icon size={13} color={s.color} />
-              </div>
-              <AnimatedNumber value={s.value} t={t} />
-              <div style={{ fontSize: 11.5, color: t.textMuted, marginTop: 2 }}>{s.label}</div>
-            </GlassCard>
-          ))}
+        <div className="cm-home-section-head"><h3 className="cm-display">Featured</h3><button onClick={() => setTab("explore")}>See all</button></div>
+        <div className="cm-featured-event cm-interactive-card" role="button" tabIndex={0} onClick={() => setTab("explore")}>
+          <div className="cm-featured-event-copy"><Badge color={featuredEvent ? collegeColor(featuredEvent.college) : TOKENS.primary}>Featured event</Badge><h2>{featuredEvent?.title || "Discover campus events"}</h2><p>Meet students, learn together and build something memorable.</p><div><span>📅 {featuredEvent?.date || "Upcoming"}</span><span>⏰ {featuredEvent?.time || "See schedule"}</span></div></div>
+          <div className="cm-featured-event-art" aria-hidden="true"><i/><i/><i/></div><button type="button">Explore <ArrowRight size={14}/></button>
         </div>
-
-        <GlassCard t={t} onClick={onGoDiscover} className="cm-interactive-card cm-home-match-cta" style={{ padding: 16, display: "flex", alignItems: "center", gap: 12, cursor: "pointer", marginBottom: 22, border: `1px solid ${TOKENS.primary}44` }}>
-          <div style={{ width: 38, height: 38, borderRadius: 11, background: `${TOKENS.like}22`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <Heart size={18} color={TOKENS.like} />
-          </div>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 700, fontSize: 13.5, color: t.text }}>Meet new students</div>
-            <div style={{ fontSize: 11.5, color: t.textMuted }}>Find friends, project partners & teammates across all colleges</div>
-          </div>
-          <ChevronRight size={16} color={t.textFaint} />
-        </GlassCard>
 
         </section>
         <section className="cm-home-discovery">
         <div className="cm-home-section-head">
-          <h3 className="cm-display" style={{ fontSize: 16, fontWeight: 700 }}>Recommended Students</h3>
+          <h3 className="cm-display" style={{ fontSize: 16, fontWeight: 700 }}>People you may know</h3>
           <button onClick={() => setTab("explore")} style={{ background: "none", border: "none", color: TOKENS.primary, fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>See all</button>
         </div>
         <div className="cm-home-card-row">
@@ -1453,6 +1429,9 @@ function Feed({ t, profile, authUser, matches, posts, following, students, clubs
           ))}
           {students.length === 0 && <p style={{ color: t.textMuted, fontSize: 12.5 }}>No student recommendations yet.</p>}
         </div>
+
+        <div className="cm-home-section-head cm-trending-head"><h3 className="cm-display">Trending on Campus</h3><button onClick={() => setTab("explore")}>See all</button></div>
+        <div className="cm-home-trending"><button type="button" onClick={() => setTab("explore")}><span>🔥</span><div><small>Hot discussion</small><strong>{trendingPost?.caption || "See what students are talking about"}</strong></div><ChevronRight size={15}/></button><button type="button" onClick={() => setTab("explore")}><span>💡</span><div><small>Campus community</small><strong>{trendingClub?.name || "Discover a new club"}</strong></div><ChevronRight size={15}/></button></div>
 
         </section>
         <section className="cm-home-campus-grid">
@@ -1869,9 +1848,10 @@ function CampusContributionSheet({ t, type, onClose, onCreated }) {
 
 function Explore({ t, profile, posts, following, onToggleFollow, onLike, onSave, onOpenComments,
                     reels, clubs, events, onLikeReel, onSaveReel, onOpenReelComments, onViewReel, authUser, onClubCreated, onEventCreated }) {
-  const [tab, setTab] = useState("students");
+  const [tab, setTab] = useState("all");
   const [filter, setFilter] = useState("All");
   const [query, setQuery] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
   const q = query.trim().toLowerCase();
 
   const [postFilter, setPostFilter] = useState("For You");
@@ -1958,7 +1938,7 @@ function Explore({ t, profile, posts, following, onToggleFollow, onLike, onSave,
 
   return (
     <div>
-      <TopBar t={t} title="Explore" subtitle="Posts, reels, students, clubs & events across every college" />
+      <TopBar t={t} title="Explore" />
       <div className="cm-page-gutter cm-explore-page">
         {authUser && (livePosts || liveReels || liveStudents || loadingLive) && (
           <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: t.textFaint, marginBottom: 8 }}>
@@ -1966,18 +1946,17 @@ function Explore({ t, profile, posts, following, onToggleFollow, onLike, onSave,
             {loadingLive ? "Loading from CampusMate..." : "Live data from your backend"}
           </div>
         )}
-        <div style={{ position: "relative", marginBottom: 14 }}>
-          <Search size={15} color={t.textFaint} style={{ position: "absolute", left: 14, top: 12 }} />
+        <div className="cm-explore-search">
+          <Search size={16} color={t.textFaint} />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search students, clubs, events, hashtags..."
-            style={{
-              width: "100%", padding: "10px 14px 10px 38px", borderRadius: 12,
-              border: `1.5px solid ${t.border}`, background: t.surface, color: t.text, fontSize: 13.5, outline: "none",
-            }}
+            style={{ color: t.text }}
           />
+          <button type="button" onClick={() => setShowFilters(value => !value)} aria-label="Filter Explore" className={showFilters ? "active" : ""}><Filter size={16}/></button>
         </div>
+        {showFilters && <div className="cm-explore-college-filter"><CollegePill code="All" active={filter === "All"} onClick={() => setFilter("All")}/>{COLLEGES.map(c => <CollegePill key={c.code} code={c.code} active={filter === c.code} onClick={() => setFilter(c.code)}/>)}</div>}
         {q && hashtagHits.length > 0 && (
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
             {hashtagHits.map((h) => <HashtagPill key={h} tag={h} t={t} onClick={() => {}} />)}
@@ -1985,11 +1964,14 @@ function Explore({ t, profile, posts, following, onToggleFollow, onLike, onSave,
         )}
         <div className="cm-scroll-row cm-explore-tabs" style={{ display: "flex", gap: 8, marginBottom: 16, overflowX: "auto" }}>
           {[
-            { k: "students", label: "Students" },
+            { k: "all", label: "All" },
             { k: "posts", label: "Posts" },
             { k: "reels", label: "Reels" },
-            { k: "clubs", label: "Clubs" },
             { k: "events", label: "Events" },
+            { k: "clubs", label: "Clubs" },
+            { k: "hackathons", label: "Hackathons" },
+            { k: "announcements", label: "Announcements" },
+            { k: "students", label: "People" },
           ].map((tb) => (
             <button key={tb.k} onClick={() => setTab(tb.k)} style={{
               padding: "8px 16px", borderRadius: 12, fontSize: 13, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap",
@@ -1999,6 +1981,13 @@ function Explore({ t, profile, posts, following, onToggleFollow, onLike, onSave,
             }}>{tb.label}</button>
           ))}
         </div>
+
+        {tab === "all" && <div className="cm-explore-overview">
+          <section><div className="cm-explore-section-head"><h3>Events</h3><button onClick={() => setTab("events")}>See all</button></div><div className="cm-explore-horizontal">{eventList.slice(0,3).map(e => <EventCard key={e.id} t={t} e={e}/>)}</div></section>
+          <section><div className="cm-explore-section-head"><h3>Clubs</h3><button onClick={() => setTab("clubs")}>See all</button></div><div className="cm-explore-club-strip">{clubList.slice(0,4).map(c => <button key={c.id} onClick={() => setTab("clubs")}><span><c.icon size={19}/></span><strong>{c.name}</strong><small>{c.members} members</small></button>)}</div></section>
+          <section><div className="cm-explore-section-head"><h3>Hackathons</h3><button onClick={() => setTab("hackathons")}>See all</button></div><div className="cm-explore-hackathon" onClick={() => setTab("hackathons")}><div><small>Build · Solve · Collaborate</small><strong>{eventList.find(e => /hack/i.test(e.title))?.title || "Campus Hackathons"}</strong><span>Explore challenges and upcoming schedules</span></div><ArrowRight/></div></section>
+          <section><div className="cm-explore-section-head"><h3>Announcements</h3><button onClick={() => setTab("announcements")}>See all</button></div><AnnouncementsRow t={t}/></section>
+        </div>}
 
         {tab === "posts" && (
           <div>
@@ -2112,6 +2101,8 @@ function Explore({ t, profile, posts, following, onToggleFollow, onLike, onSave,
             </GlassCard></>}
           </div>
         )}
+        {tab === "hackathons" && <div className="cm-explore-grid" style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(230px,1fr))", gap:14 }}>{eventList.filter(event => /hack|code|tech/i.test(`${event.title} ${event.description || ""}`)).map(event => <EventCard key={event.id} t={t} e={event} onRegister={authUser ? selected => cmApi.registerForEvent(selected.id).then(() => setContributionNotice(`Registered for ${selected.title}.`)).catch(() => setContributionNotice("Could not register for this event.")) : undefined}/>)}{!eventList.some(event => /hack|code|tech/i.test(`${event.title} ${event.description || ""}`)) && <div className="cm-empty">No hackathons announced yet.</div>}</div>}
+        {tab === "announcements" && <div className="cm-explore-announcements"><AnnouncementsRow t={t}/></div>}
         {contributionType && (
           <CampusContributionSheet
             t={t}

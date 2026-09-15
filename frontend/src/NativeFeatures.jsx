@@ -149,13 +149,19 @@ export function NativeProfile({ me, onUserChange, onLogout }) {
     { value: safeMe.followingCount || 0, label: "Following" },
     { value: posts.length, label: "Posts" },
   ];
+  const coverUrl = api.resolveMediaUrl(safeMe.coverPhoto?.url);
+  const isVerified = ["verified", "email_verified", "college_verified"].includes(safeMe.verificationStatus);
   return <section className="cm-native-profile">
     <div className="cm-profile-card">
-      <div className="cm-profile-cover" aria-hidden="true"><span>Build. Belong. Grow.</span></div>
+      <div className={`cm-profile-cover ${coverUrl ? "has-custom-cover" : ""}`} style={coverUrl ? { "--cm-profile-cover": `url("${coverUrl}")` } : undefined} aria-hidden="true">
+        <span className="cm-profile-cover-orb"/>
+        <strong>CampusMate</strong>
+        <span>Build. Belong.<br/>Grow.</span>
+      </div>
       <div className="cm-profile-identity">
         <label className="cm-profile-photo" title="Change profile photo"><Avatar user={safeMe} size={112}/><i><Camera size={15}/></i><input hidden type="file" accept="image/*" onChange={photo}/></label>
         <button className="cm-profile-edit" onClick={() => setEdit(true)}><Pencil size={16}/> Edit profile</button>
-        <div className="cm-profile-name"><h2>{safeMe.name || "CampusMate user"}</h2>{safeMe.verificationStatus === "verified" && <BadgeCheck size={19} aria-label="Verified"/>}</div>
+        <div className="cm-profile-name"><h2>{safeMe.name || "CampusMate user"}</h2>{isVerified && <BadgeCheck size={19} aria-label="Verified"/>}<span className="cm-profile-status">Active</span></div>
         <div className="cm-profile-meta">{meta.map(value => <span key={value}>{value}</span>)}<span><MapPin size={13}/>{college}</span></div>
         <p className="cm-profile-bio">{safeMe.bio || "Add a bio to introduce yourself to your campus community."}</p>
         {interests.length > 0 && <div className="cm-profile-interests">{interests.slice(0, 6).map(interest => <span key={interest}>{interest}</span>)}</div>}
