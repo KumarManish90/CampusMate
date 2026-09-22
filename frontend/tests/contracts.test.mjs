@@ -96,3 +96,20 @@ test("logged-in dashboard uses responsive interactive sections", () => {
   assert.match(css, /\.cm-home-dashboard\{display:grid/);
   assert.match(css, /@media\(max-width:980px\)\{\.cm-home-dashboard\{grid-template-columns:1fr\}/);
 });
+
+test("reference-led campus UI preserves real data and collaboration language", () => {
+  assert.match(app, /className="cm-home-search"/);
+  assert.match(app, /imageUrl: cmApi\.resolveMediaUrl\(e\.image\?\.url\)/);
+  assert.match(app, /className="cm-match-photo"/);
+  assert.match(app, /label="Interested"/);
+  assert.match(app, /label="Connect"/);
+  assert.doesNotMatch(app, />SUPER ⭐</);
+  assert.match(app, /cm-mixed-grid/);
+});
+
+test("messages expose responsive conversation filters without removing media chat", () => {
+  assert.match(native, /conversationFilter/);
+  assert.match(native, /\["all","unread","groups"\]/);
+  assert.match(css, /\.cm-chat-filters/);
+  assert.match(native, /accept="image\/jpeg,image\/png,image\/webp,image\/gif,video\/mp4,video\/webm"/);
+});

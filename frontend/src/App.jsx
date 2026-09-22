@@ -194,6 +194,7 @@ function adaptApiClub(c) {
   return {
     id: c._id, name: c.name, college: c.college, desc: c.description || "",
     members: c.membersCount ?? c.members?.length ?? 0, icon: Users, isDemo: false,
+    imageUrl: cmApi.resolveMediaUrl(c.coverImage?.url || c.logo?.url),
   };
 }
 function adaptApiEvent(e) {
@@ -203,6 +204,8 @@ function adaptApiEvent(e) {
     date: Number.isNaN(date.getTime()) ? "Date TBA" : date.toLocaleDateString("en-IN", { day: "numeric", month: "short" }),
     time: Number.isNaN(date.getTime()) ? "Time TBA" : date.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" }),
     participants: e.participantsCount ?? e.participants?.length ?? 0, isDemo: false,
+    description: e.description || "", venue: e.venue || "",
+    imageUrl: cmApi.resolveMediaUrl(e.image?.url),
   };
 }
 function adaptApiComment(c) {
@@ -969,7 +972,7 @@ function PostCard({ t, post, following, onToggleFollow, onLike, onSave, onOpenCo
   return (
     <GlassCard t={t} style={{ padding: 16, marginBottom: 16, animation: "cmFadeUp .4s ease both" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <Avatar name={a.name} color={collegeColor(a.college)} size={42} />
+        <Avatar name={a.name} color={collegeColor(a.college)} size={42} photoUrl={cmApi.resolveMediaUrl(a.photoUrl)} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
             <span style={{ fontWeight: 700, fontSize: 14, color: t.text }}>{a.name}</span>
@@ -1397,13 +1400,14 @@ function Feed({ t, profile, authUser, matches, posts, following, students, clubs
     <div>
       <TopBar t={t} title={`Good morning, ${profile.name?.split(" ")[0] || "there"} 👋`} subtitle="Your campus. Your community." onBell={onBell} onBrandClick={onBrandClick} onSearch={() => setTab("explore")} user={authUser} />
       <div className="cm-page-gutter cm-home-page">
+        <button type="button" className="cm-home-search" onClick={() => setTab("explore")}><Search size={16}/><span>Search friends, events, clubs and posts…</span><Filter size={15}/></button>
         <section className="cm-home-stories">{authUser ? <NativeStories me={authUser} t={t} onCreate={onCreateStory} /> : <StoriesRow t={t} profile={profile} onOpen={onOpenStory} />}</section>
 
         <div className="cm-home-dashboard">
         <section className="cm-home-overview">
         <div className="cm-home-section-head"><h3 className="cm-display">Featured</h3><button onClick={() => setTab("explore")}>See all</button></div>
-        <div className="cm-featured-event cm-interactive-card" role="button" tabIndex={0} onClick={() => setTab("explore")}>
-          <div className="cm-featured-event-copy"><Badge color={featuredEvent ? collegeColor(featuredEvent.college) : TOKENS.primary}>Featured event</Badge><h2>{featuredEvent?.title || "Discover campus events"}</h2><p>Meet students, learn together and build something memorable.</p><div><span>📅 {featuredEvent?.date || "Upcoming"}</span><span>⏰ {featuredEvent?.time || "See schedule"}</span></div></div>
+        <div className={`cm-featured-event cm-interactive-card ${featuredEvent?.imageUrl ? "has-image" : ""}`} style={featuredEvent?.imageUrl ? { "--cm-event-image": `url("${featuredEvent.imageUrl}")` } : undefined} role="button" tabIndex={0} onClick={() => setTab("explore")}>
+          <div className="cm-featured-event-copy"><Badge color={featuredEvent ? collegeColor(featuredEvent.college) : TOKENS.primary}>Featured event</Badge><h2>{featuredEvent?.title || "Discover campus events"}</h2><p>{featuredEvent?.description || "Meet students, learn together and build something memorable."}</p><div><span>📅 {featuredEvent?.date || "Upcoming"}</span><span>⏰ {featuredEvent?.time || "See schedule"}</span></div></div>
           <div className="cm-featured-event-art" aria-hidden="true"><i/><i/><i/></div><button type="button">Explore <ArrowRight size={14}/></button>
         </div>
 
@@ -1416,7 +1420,7 @@ function Feed({ t, profile, authUser, matches, posts, following, students, clubs
         <div className="cm-home-card-row">
           {students.slice(0, 6).map((s) => (
             <GlassCard key={s.id} t={t} className="cm-interactive-card cm-student-mini-card" style={{ padding: 14, minWidth: 150, flexShrink: 0, textAlign: "center" }}>
-              <div style={{ display: "flex", justifyContent: "center" }}><Avatar name={s.name} color={collegeColor(s.college)} size={48} /></div>
+              <div style={{ display: "flex", justifyContent: "center" }}><Avatar name={s.name} color={collegeColor(s.college)} size={48} photoUrl={cmApi.resolveMediaUrl(s.photoUrl)} /></div>
               <div style={{ fontWeight: 700, fontSize: 12.5, color: t.text, marginTop: 8 }}>{s.name}</div>
               <div style={{ fontSize: 11, color: t.textMuted }}>{s.college}</div>
               <button onClick={() => onToggleFollow(s.id)} style={{
@@ -1453,7 +1457,7 @@ function Feed({ t, profile, authUser, matches, posts, following, students, clubs
         </div>
         <div className="cm-home-card-row">
           {clubs.slice(0, 4).map((c) => (
-            <GlassCard key={c.id} t={t} className="cm-interactive-card" style={{ padding: 14, minWidth: 170, flexShrink: 0 }}>
+            <GlassCard key={c.id} t={t} className={`cm-interactive-card cm-club-card ${c.imageUrl ? "has-image" : ""}`} style={{ padding: 14, minWidth: 170, flexShrink: 0, "--cm-club-image": c.imageUrl ? `url("${c.imageUrl}")` : undefined }}>
               <div style={{ width: 32, height: 32, borderRadius: 9, background: `${TOKENS.primary}22`, display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <c.icon size={15} color={TOKENS.primary} />
               </div>
@@ -1495,7 +1499,7 @@ function SwipeCard({ t, student, onDecision, isTop, dragState, setDragState }) {
     const { x } = dragState;
     if (x > 110) onDecision("like");
     else if (x < -110) onDecision("pass");
-    else if (dragState.y < -110) onDecision("super");
+    else if (dragState.y < -110) onDecision("connect");
     else setDragState({ x: 0, y: 0 });
   };
 
@@ -1524,8 +1528,9 @@ function SwipeCard({ t, student, onDecision, isTop, dragState, setDragState }) {
         background: `linear-gradient(160deg, ${collegeColor(student.college)}33, ${t.bg2})`,
       }}
     >
-      <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <div style={{
+      <div className="cm-match-photo" style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        {student.photoUrl && <img src={cmApi.resolveMediaUrl(student.photoUrl)} alt={student.name} draggable="false" />}
+        {!student.photoUrl && <div style={{
           width: 150, height: 150, borderRadius: "50%",
           background: `linear-gradient(135deg, ${collegeColor(student.college)}, ${TOKENS.primary2})`,
           display: "flex", alignItems: "center", justifyContent: "center",
@@ -1533,17 +1538,17 @@ function SwipeCard({ t, student, onDecision, isTop, dragState, setDragState }) {
           boxShadow: "0 20px 50px -15px rgba(0,0,0,0.5)",
         }}>
           {student.name[0]}
-        </div>
+        </div>}
       </div>
 
       <div style={{ position: "absolute", top: 18, left: 18 }}>
         <div style={{ opacity: passOpacity, transform: `scale(${0.8 + passOpacity * 0.3}) rotate(-14deg)`, border: `3px solid ${TOKENS.like}`, color: TOKENS.like, fontWeight: 800, fontSize: 22, padding: "4px 14px", borderRadius: 10 }}>PASS</div>
       </div>
       <div style={{ position: "absolute", top: 18, right: 18 }}>
-        <div style={{ opacity: likeOpacity, transform: `scale(${0.8 + likeOpacity * 0.3}) rotate(14deg)`, border: `3px solid ${TOKENS.super}`, color: TOKENS.super, fontWeight: 800, fontSize: 22, padding: "4px 14px", borderRadius: 10 }}>LIKE</div>
+        <div style={{ opacity: likeOpacity, transform: `scale(${0.8 + likeOpacity * 0.3}) rotate(14deg)`, border: `3px solid ${TOKENS.super}`, color: TOKENS.super, fontWeight: 800, fontSize: 19, padding: "4px 12px", borderRadius: 10 }}>INTERESTED</div>
       </div>
       <div style={{ position: "absolute", top: 18, left: "50%", transform: "translateX(-50%)" }}>
-        <div style={{ opacity: superOpacity, transform: `scale(${0.8 + superOpacity * 0.3})`, border: `3px solid ${TOKENS.amber}`, color: TOKENS.amber, fontWeight: 800, fontSize: 20, padding: "4px 14px", borderRadius: 10 }}>SUPER ⭐</div>
+        <div style={{ opacity: superOpacity, transform: `scale(${0.8 + superOpacity * 0.3})`, border: `3px solid ${TOKENS.amber}`, color: TOKENS.amber, fontWeight: 800, fontSize: 18, padding: "4px 12px", borderRadius: 10 }}>CONNECT</div>
       </div>
 
       <div style={{
@@ -1672,7 +1677,7 @@ function Discover({ t, profile, onMatch, onServerMatch, authUser }) {
 
   return (
     <div>
-      <TopBar t={t} title="Matching" subtitle="Find friends, teammates & study partners across campus" />
+      <TopBar t={t} title="Find Your People" subtitle="Friends. Projects. Ideas. Opportunities." />
       <div className="cm-page-gutter cm-discover-page">
         <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 12 }}>
           <CollegePill code="All" active={filter === "All"} onClick={() => setFilter("All")} />
@@ -1711,9 +1716,9 @@ function Discover({ t, profile, onMatch, onServerMatch, authUser }) {
             </div>
 
             <div className="cm-match-actions" style={{ display: "flex", justifyContent: "center", gap: 18, marginTop: 20, "--cm-action-bg": t.bg2, "--cm-action-border": t.border }}>
-              <RoundBtn label="Pass" disabled={busy} color={TOKENS.like} icon={X} onClick={() => decide("pass")} />
-              <RoundBtn label="Connect" disabled={busy} color={TOKENS.amber} icon={UserPlus} onClick={() => decide("connect")} size={46} />
-              <RoundBtn label="Like" disabled={busy} color={TOKENS.super} icon={Heart} onClick={() => decide("like")} />
+              <RoundBtn label="Skip" disabled={busy} color={TOKENS.like} icon={X} onClick={() => decide("pass")} />
+              <RoundBtn label="Interested" disabled={busy} color={TOKENS.amber} icon={Star} onClick={() => decide("like")} size={46} />
+              <RoundBtn label="Connect" disabled={busy} color={TOKENS.primary2} icon={UserPlus} onClick={() => decide("connect")} />
             </div>
           </>
         )}
@@ -1811,14 +1816,15 @@ function Avatar({ name, color, size = 68, photoUrl }) {
 
 function EventCard({ t, e, compact, onRegister }) {
   return (
-    <GlassCard t={t} style={{ padding: 16, minWidth: compact ? 220 : "auto", flexShrink: 0 }}>
-      <Badge color={collegeColor(e.college)}>{e.college}</Badge>
+    <GlassCard t={t} className={`cm-event-card ${e.imageUrl ? "has-image" : ""}`} style={{ minWidth: compact ? 220 : "auto", flexShrink: 0, "--cm-card-image": e.imageUrl ? `url("${e.imageUrl}")` : undefined }}>
+      <div className="cm-event-card-art" aria-hidden="true"/>
+      <div className="cm-event-card-body"><Badge color={collegeColor(e.college)}>{e.college}</Badge>
       <div style={{ fontWeight: 700, fontSize: 15, color: t.text, marginTop: 8 }}>{e.title}</div>
       <div style={{ fontSize: 12.5, color: t.textMuted, marginTop: 4, display: "flex", gap: 10, flexWrap: "wrap" }}>
         <span>📅 {e.date}</span><span>⏰ {e.time}</span>
       </div>
       <div style={{ fontSize: 11.5, color: t.textFaint, marginTop: 4 }}>{e.participants} participants{e.isDemo ? " (demo)" : ""}</div>
-      {onRegister && <button onClick={() => onRegister(e)} style={{ marginTop: 10, padding: 0, border: 0, background: "transparent", color: TOKENS.primary, fontWeight: 700, cursor: "pointer" }}>Register →</button>}
+      {onRegister && <button onClick={() => onRegister(e)} style={{ marginTop: 10, padding: 0, border: 0, background: "transparent", color: TOKENS.primary, fontWeight: 700, cursor: "pointer" }}>Register →</button>}</div>
     </GlassCard>
   );
 }
@@ -1889,8 +1895,8 @@ function Explore({ t, profile, posts, following, onToggleFollow, onLike, onSave,
     }
   }, [authUser, tab, postFilter, filter, query]);
 
-  const effectivePosts = authUser ? (livePosts || []) : posts;
-  const effectiveReels = authUser ? (liveReels || []) : reels;
+  const effectivePosts = authUser ? (livePosts || posts) : posts;
+  const effectiveReels = authUser ? (liveReels || reels) : reels;
   const effectiveStudentsPool = authUser ? (liveStudents || []) : STUDENTS;
 
   const visiblePosts = useMemo(() => {
@@ -1983,6 +1989,8 @@ function Explore({ t, profile, posts, following, onToggleFollow, onLike, onSave,
         </div>
 
         {tab === "all" && <div className="cm-explore-overview">
+          {availableHashtags.length > 0 && <section><div className="cm-explore-section-head"><h3>Trending Topics</h3></div><div className="cm-topic-row">{availableHashtags.slice(0,6).map(tag => <button key={tag} onClick={() => { setTab("posts"); setHashtagFocus(tag); }}>{tag}</button>)}</div></section>}
+          {(effectivePosts.length > 0 || effectiveReels.length > 0) && <section><div className="cm-explore-section-head"><h3>Across Campus</h3><button onClick={() => setTab("posts")}>See all</button></div><div className="cm-mixed-grid">{effectivePosts.slice(0,2).map(post => { const media = cmApi.resolveMediaUrl(post.media?.[0]?.url); return <button key={`post-${post.id}`} onClick={() => setTab("posts")} style={media ? { "--cm-mixed-image": `url("${media}")` } : undefined}><span>Post</span><strong>{post.caption || "Campus post"}</strong></button>; })}{effectiveReels.slice(0,2).map(reel => { const media = cmApi.resolveMediaUrl(reel.thumbnailUrl); return <button key={`reel-${reel.id}`} onClick={() => setTab("reels")} style={media ? { "--cm-mixed-image": `url("${media}")` } : undefined}><span>Reel</span><strong>{reel.caption || "Campus reel"}</strong></button>; })}</div></section>}
           <section><div className="cm-explore-section-head"><h3>Events</h3><button onClick={() => setTab("events")}>See all</button></div><div className="cm-explore-horizontal">{eventList.slice(0,3).map(e => <EventCard key={e.id} t={t} e={e}/>)}</div></section>
           <section><div className="cm-explore-section-head"><h3>Clubs</h3><button onClick={() => setTab("clubs")}>See all</button></div><div className="cm-explore-club-strip">{clubList.slice(0,4).map(c => <button key={c.id} onClick={() => setTab("clubs")}><span><c.icon size={19}/></span><strong>{c.name}</strong><small>{c.members} members</small></button>)}</div></section>
           <section><div className="cm-explore-section-head"><h3>Hackathons</h3><button onClick={() => setTab("hackathons")}>See all</button></div><div className="cm-explore-hackathon" onClick={() => setTab("hackathons")}><div><small>Build · Solve · Collaborate</small><strong>{eventList.find(e => /hack/i.test(e.title))?.title || "Campus Hackathons"}</strong><span>Explore challenges and upcoming schedules</span></div><ArrowRight/></div></section>
@@ -2056,7 +2064,7 @@ function Explore({ t, profile, posts, following, onToggleFollow, onLike, onSave,
           {authUser && <div className="cm-campus-contribute"><div><strong>Campus communities</strong><span>Start a group for students at {authUser.collegeName}.</span></div><PrimaryButton icon={Plus} onClick={() => setContributionType("club")}>Create community</PrimaryButton></div>}
           <div className="cm-explore-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(230px,1fr))", gap: 14 }}>
             {clubList.map((c) => (
-              <GlassCard key={c.id} t={t} style={{ padding: 18, transition: "transform .15s ease" }}
+              <GlassCard key={c.id} t={t} className={`cm-club-card ${c.imageUrl ? "has-image" : ""}`} style={{ padding: 18, transition: "transform .15s ease", "--cm-club-image": c.imageUrl ? `url("${c.imageUrl}")` : undefined }}
                 onClick={(e) => { e.currentTarget.style.transform = "translateY(-3px)"; }}>
                 <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
                   <div style={{ width: 38, height: 38, borderRadius: 11, background: `${TOKENS.primary}22`, display: "flex", alignItems: "center", justifyContent: "center" }}>
