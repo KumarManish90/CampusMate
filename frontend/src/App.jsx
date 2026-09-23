@@ -1391,22 +1391,22 @@ function AnnouncementsRow({ t }) {
 }
 
 function Feed({ t, profile, authUser, matches, posts, following, students, clubs, events, onToggleFollow, onLike, onSave, onOpenComments,
-                onOpenStory, onBell, onBrandClick, setTab, onGoDiscover, onCreateStory }) {
+                onOpenStory, onBell, onBrandClick, onOpenExplore, onGoDiscover, onCreateStory }) {
   const featuredEvent = events[0];
   const trendingPost = posts[0];
   const trendingClub = clubs[0];
 
   return (
     <div>
-      <TopBar t={t} title={`Good morning, ${profile.name?.split(" ")[0] || "there"} 👋`} subtitle="Your campus. Your community." onBell={onBell} onBrandClick={onBrandClick} onSearch={() => setTab("explore")} user={authUser} />
+      <TopBar t={t} title={`Good morning, ${profile.name?.split(" ")[0] || "there"} 👋`} subtitle="Your campus. Your community." onBell={onBell} onBrandClick={onBrandClick} onSearch={() => onOpenExplore("all")} user={authUser} />
       <div className="cm-page-gutter cm-home-page">
-        <button type="button" className="cm-home-search" onClick={() => setTab("explore")}><Search size={16}/><span>Search friends, events, clubs and posts…</span><Filter size={15}/></button>
+        <button type="button" className="cm-home-search" onClick={() => onOpenExplore("all")}><Search size={16}/><span>Search friends, events, clubs and posts…</span><Filter size={15}/></button>
         <section className="cm-home-stories">{authUser ? <NativeStories me={authUser} t={t} onCreate={onCreateStory} /> : <StoriesRow t={t} profile={profile} onOpen={onOpenStory} />}</section>
 
         <div className="cm-home-dashboard">
         <section className="cm-home-overview">
-        <div className="cm-home-section-head"><h3 className="cm-display">Featured</h3><button onClick={() => setTab("explore")}>See all</button></div>
-        <div className={`cm-featured-event cm-interactive-card ${featuredEvent?.imageUrl ? "has-image" : ""}`} style={featuredEvent?.imageUrl ? { "--cm-event-image": `url("${featuredEvent.imageUrl}")` } : undefined} role="button" tabIndex={0} onClick={() => setTab("explore")}>
+        <div className="cm-home-section-head"><h3 className="cm-display">Featured</h3><button onClick={() => onOpenExplore("events")}>See all</button></div>
+        <div className={`cm-featured-event cm-interactive-card ${featuredEvent?.imageUrl ? "has-image" : ""}`} style={featuredEvent?.imageUrl ? { "--cm-event-image": `url("${featuredEvent.imageUrl}")` } : undefined} role="button" tabIndex={0} onClick={() => onOpenExplore("events")} onKeyDown={event => { if (event.key === "Enter" || event.key === " ") onOpenExplore("events"); }}>
           <div className="cm-featured-event-copy"><Badge color={featuredEvent ? collegeColor(featuredEvent.college) : TOKENS.primary}>Featured event</Badge><h2>{featuredEvent?.title || "Discover campus events"}</h2><p>{featuredEvent?.description || "Meet students, learn together and build something memorable."}</p><div><span>📅 {featuredEvent?.date || "Upcoming"}</span><span>⏰ {featuredEvent?.time || "See schedule"}</span></div></div>
           <div className="cm-featured-event-art" aria-hidden="true"><i/><i/><i/></div><button type="button">Explore <ArrowRight size={14}/></button>
         </div>
@@ -1415,7 +1415,7 @@ function Feed({ t, profile, authUser, matches, posts, following, students, clubs
         <section className="cm-home-discovery">
         <div className="cm-home-section-head">
           <h3 className="cm-display" style={{ fontSize: 16, fontWeight: 700 }}>People you may know</h3>
-          <button onClick={() => setTab("explore")} style={{ background: "none", border: "none", color: TOKENS.primary, fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>See all</button>
+          <button onClick={() => onOpenExplore("students")} style={{ background: "none", border: "none", color: TOKENS.primary, fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>See all</button>
         </div>
         <div className="cm-home-card-row">
           {students.slice(0, 6).map((s) => (
@@ -1434,15 +1434,21 @@ function Feed({ t, profile, authUser, matches, posts, following, students, clubs
           {students.length === 0 && <p style={{ color: t.textMuted, fontSize: 12.5 }}>No student recommendations yet.</p>}
         </div>
 
-        <div className="cm-home-section-head cm-trending-head"><h3 className="cm-display">Trending on Campus</h3><button onClick={() => setTab("explore")}>See all</button></div>
-        <div className="cm-home-trending"><button type="button" onClick={() => setTab("explore")}><span>🔥</span><div><small>Hot discussion</small><strong>{trendingPost?.caption || "See what students are talking about"}</strong></div><ChevronRight size={15}/></button><button type="button" onClick={() => setTab("explore")}><span>💡</span><div><small>Campus community</small><strong>{trendingClub?.name || "Discover a new club"}</strong></div><ChevronRight size={15}/></button></div>
+        <section className="cm-home-match-card cm-interactive-card" aria-labelledby="cm-home-match-title">
+          <div className="cm-home-match-art" aria-hidden="true"><Users/><Sparkles/></div>
+          <div><small>Campus discovery</small><h3 id="cm-home-match-title">Find Your People</h3><p>Discover students for projects, hackathons, friendship and collaboration.</p>{matches.length > 0 && <span>{matches.length} connection{matches.length === 1 ? "" : "s"} ready to chat</span>}</div>
+          <button type="button" onClick={onGoDiscover}>Start Matching <ArrowRight size={15}/></button>
+        </section>
+
+        <div className="cm-home-section-head cm-trending-head"><h3 className="cm-display">Trending on Campus</h3><button onClick={() => onOpenExplore("posts")}>See all</button></div>
+        <div className="cm-home-trending"><button type="button" onClick={() => onOpenExplore("posts")}><span>🔥</span><div><small>Hot discussion</small><strong>{trendingPost?.caption || "See what students are talking about"}</strong></div><ChevronRight size={15}/></button><button type="button" onClick={() => onOpenExplore("clubs")}><span>💡</span><div><small>Campus community</small><strong>{trendingClub?.name || "Discover a new club"}</strong></div><ChevronRight size={15}/></button></div>
 
         </section>
         <section className="cm-home-campus-grid">
         <div className="cm-home-campus-block">
         <div className="cm-home-section-head">
           <h3 className="cm-display" style={{ fontSize: 16, fontWeight: 700 }}>Upcoming Events</h3>
-          <button onClick={() => setTab("explore")} style={{ background: "none", border: "none", color: TOKENS.primary, fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>See all</button>
+          <button onClick={() => onOpenExplore("events")} style={{ background: "none", border: "none", color: TOKENS.primary, fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>See all</button>
         </div>
         <div className="cm-home-card-row">
           {events.slice(0, 4).map((e) => <EventCard key={e.id} t={t} e={e} compact />)}
@@ -1453,7 +1459,7 @@ function Feed({ t, profile, authUser, matches, posts, following, students, clubs
         <div className="cm-home-campus-block">
         <div className="cm-home-section-head">
           <h3 className="cm-display" style={{ fontSize: 16, fontWeight: 700 }}>Campus Communities</h3>
-          <button onClick={() => setTab("explore")} style={{ background: "none", border: "none", color: TOKENS.primary, fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>See all</button>
+          <button onClick={() => onOpenExplore("clubs")} style={{ background: "none", border: "none", color: TOKENS.primary, fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>See all</button>
         </div>
         <div className="cm-home-card-row">
           {clubs.slice(0, 4).map((c) => (
@@ -1853,8 +1859,8 @@ function CampusContributionSheet({ t, type, onClose, onCreated }) {
 }
 
 function Explore({ t, profile, posts, following, onToggleFollow, onLike, onSave, onOpenComments,
-                    reels, clubs, events, onLikeReel, onSaveReel, onOpenReelComments, onViewReel, authUser, onClubCreated, onEventCreated }) {
-  const [tab, setTab] = useState("all");
+                    reels, clubs, events, onLikeReel, onSaveReel, onOpenReelComments, onViewReel, authUser, onClubCreated, onEventCreated, initialTab = "all" }) {
+  const [tab, setTab] = useState(initialTab);
   const [filter, setFilter] = useState("All");
   const [query, setQuery] = useState("");
   const [showFilters, setShowFilters] = useState(false);
@@ -1976,8 +1982,6 @@ function Explore({ t, profile, posts, following, onToggleFollow, onLike, onSave,
             { k: "events", label: "Events" },
             { k: "clubs", label: "Clubs" },
             { k: "hackathons", label: "Hackathons" },
-            { k: "announcements", label: "Announcements" },
-            { k: "students", label: "People" },
           ].map((tb) => (
             <button key={tb.k} onClick={() => setTab(tb.k)} style={{
               padding: "8px 16px", borderRadius: 12, fontSize: 13, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap",
@@ -2781,6 +2785,7 @@ export default function CampusMateApp() {
   const { dark, setDark, t } = useTheme();
   const [view, setView] = useState("landing"); // landing | auth | onboarding | app
   const [tab, setTab] = useState("home");
+  const [exploreTarget, setExploreTarget] = useState({ section: "all", key: 0 });
   const [activeChat, setActiveChat] = useState(null);
   const [matchModal, setMatchModal] = useState(null);
   const [matches, setMatches] = useState([]);
@@ -2788,7 +2793,7 @@ export default function CampusMateApp() {
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
     document.querySelector(".cm-app-content")?.scrollTo?.({ top: 0, left: 0, behavior: "auto" });
-  }, [tab, view]);
+  }, [tab, view, exploreTarget.key]);
 
   // ---- Session / backend connectivity ----
   const [authUser, setAuthUser] = useState(null);
@@ -3018,12 +3023,20 @@ export default function CampusMateApp() {
   }
 
   const openStory = (story) => setActiveStory(story);
+  const openExplore = (section = "all") => {
+    setExploreTarget(current => ({ section, key: current.key + 1 }));
+    setTab("explore");
+  };
+  const selectPrimaryTab = nextTab => {
+    if (nextTab === "explore") openExplore("all");
+    else setTab(nextTab);
+  };
 
   return (
     <div className="cm-root">
       <GlobalStyle />
       <ToastHost />
-      <Shell t={t} dark={dark} setDark={setDark} tab={tab} setTab={setTab} unread={matches.length} onCreate={() => setShowCreate(true)}
+      <Shell t={t} dark={dark} setDark={setDark} tab={tab} setTab={selectPrimaryTab} unread={matches.length} onCreate={() => setShowCreate(true)}
         connectionStatus={backendOnline ? "online" : "offline"} onBrandClick={() => setView("landing")}>
         <FeatureErrorBoundary resetKey={tab} onHome={() => setTab("home")}>
         {tab === "home" && (
@@ -3032,12 +3045,12 @@ export default function CampusMateApp() {
             students={authUser ? homeStudents : STUDENTS} clubs={authUser ? clubs : CLUBS} events={authUser ? events : EVENTS}
             onToggleFollow={toggleFollow} onLike={likePost} onSave={savePost}
             onOpenComments={(p) => setCommentsPost(p)} onOpenStory={openStory}
-            onBell={() => setShowNotifs((s) => !s)} onBrandClick={() => setView("landing")} setTab={setTab} onGoDiscover={() => setTab("discover")}
+            onBell={() => setShowNotifs((s) => !s)} onBrandClick={() => setView("landing")} onOpenExplore={openExplore} onGoDiscover={() => setTab("discover")}
           />
         )}
         {tab === "discover" && <Discover t={t} profile={profile} authUser={authUser} onMatch={handleMatch} onServerMatch={handleMatch} />}
         {tab === "explore" && (
-          <Explore t={t} profile={profile} posts={posts} following={following}
+          <Explore key={exploreTarget.key} initialTab={exploreTarget.section} t={t} profile={profile} posts={posts} following={following}
             onToggleFollow={toggleFollow} onLike={likePost} onSave={savePost} onOpenComments={(p) => setCommentsPost(p)}
             reels={reels} onLikeReel={likeReel} onSaveReel={saveReel} onOpenReelComments={(r) => setCommentsReel(r)} onViewReel={viewReel}
             authUser={authUser} clubs={clubs} events={events}

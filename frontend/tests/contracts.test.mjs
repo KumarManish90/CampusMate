@@ -113,3 +113,19 @@ test("messages expose responsive conversation filters without removing media cha
   assert.match(css, /\.cm-chat-filters/);
   assert.match(native, /accept="image\/jpeg,image\/png,image\/webp,image\/gif,video\/mp4,video\/webm"/);
 });
+
+test("mobile primary navigation stays fixed while secondary features remain reachable", () => {
+  const nav = app.slice(app.indexOf("const NAV_ITEMS"), app.indexOf("const SIDEBAR_ITEMS"));
+  for (const item of ["Home", "Explore", "Messages", "Profile"]) assert.match(nav, new RegExp(`label: "${item}"`));
+  for (const secondary of ["Matching", "Events", "Clubs", "Announcements"]) assert.doesNotMatch(nav, new RegExp(`label: "${secondary}"`));
+  assert.match(app, /className="cm-mobile-create" aria-label="Create"/);
+  assert.match(css, /\.cm-bottomnav>\.cm-mobile-nav-item\{flex:1 1 0/);
+});
+
+test("Home links to existing matching and targeted Explore sections", () => {
+  assert.match(app, /id="cm-home-match-title">Find Your People/);
+  assert.match(app, /onClick=\{onGoDiscover\}>Start Matching/);
+  assert.match(app, /onOpenExplore\("events"\)/);
+  assert.match(app, /onOpenExplore\("clubs"\)/);
+  assert.match(app, /initialTab=\{exploreTarget\.section\}/);
+});
