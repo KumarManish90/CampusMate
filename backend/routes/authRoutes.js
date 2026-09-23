@@ -39,6 +39,7 @@ function classifyEmail(email, collegeDomain) {
 router.post(
   "/register",
   asyncHandler(async (req, res) => {
+    if (process.env.NODE_ENV === "production") return res.status(410).json({ message: "Use email or phone OTP to create your account." });
     const parsed = registerSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
     const { name, email, password, collegeId, collegeName, collegeCity, course, branch, year } = parsed.data;
@@ -86,6 +87,7 @@ router.post(
     const ok = await bcrypt.compare(password, user.passwordHash);
     if (!ok) return res.status(401).json({ message: "Incorrect email or password." });
 
+    if (process.env.NODE_ENV === "production" && user.verificationStatus === "unverified") return res.status(403).json({ message: "Verify your email with an OTP before signing in." });
     user.lastActiveAt = new Date();
     await user.save();
 
