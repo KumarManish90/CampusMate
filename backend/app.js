@@ -10,6 +10,7 @@ const { notFound, errorHandler } = require("./middleware/errorHandler");
 const responseEnvelope = require("./middleware/responseEnvelope");
 
 const authRoutes = require("./routes/authRoutes");
+const otpRoutes = require("./routes/otpRoutes");
 const collegeRoutes = require("./routes/collegeRoutes");
 const userRoutes = require("./routes/userRoutes");
 const postRoutes = require("./routes/postRoutes"); // also exposes GET /api/feed
@@ -26,6 +27,7 @@ const adminRoutes = require("./routes/adminRoutes");
 
 const BUILT_IN_TRUSTED_ORIGINS = [
   "https://campusmate-git-gemini-updates-bodom-squads.vercel.app",
+  "https://campusmate-manish-community.manishkumar09984.chatgpt.site",
 ];
 
 /**
@@ -103,6 +105,7 @@ function createApp() {
   app.use("/api/auth/register", authLimiter);
   app.use("/api/auth/send-otp", authLimiter);
   app.use("/api/auth/verify-otp", authLimiter);
+  app.use("/api/auth/otp", authLimiter);
 
   // Local-mode media (no-op in production if you're on Cloudinary)
   app.use("/uploads", express.static(path.join(__dirname, "uploads")));
@@ -110,6 +113,7 @@ function createApp() {
   app.get("/api/health", (req, res) => res.json({ message: "CampusMate API is running", time: new Date().toISOString() }));
 
   app.use("/api/auth", authRoutes);
+  app.use("/api/auth/otp", otpRoutes);
   app.use("/api/colleges", collegeRoutes);
   app.use("/api/users", userRoutes);
   app.use("/api", postRoutes); // /api/feed, /api/posts/*

@@ -34,6 +34,12 @@ services:
         sync: false
       - key: EMAIL_FROM
         sync: false
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: TWILIO_FROM
+        sync: false
       - key: MAX_IMAGE_SIZE_MB
         value: 10
       - key: MAX_VIDEO_SIZE_MB

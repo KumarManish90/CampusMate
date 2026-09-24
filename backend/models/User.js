@@ -47,7 +47,7 @@ const userSchema = new mongoose.Schema(
     //   college_verified -> additionally confirmed as an actual student of `college`
     //                       (e.g. matched an institutional email domain, or manual review)
     // Entering a college name at signup NEVER by itself implies college_verified.
-    verificationStatus: { type: String, enum: ["unverified", "email_verified", "college_verified"], default: "unverified" },
+    verificationStatus: { type: String, enum: ["unverified", "email_verified", "phone_verified", "college_verified"], default: "unverified" },
     emailOtpHash: { type: String, select: false },
     emailOtpExpiresAt: { type: Date, select: false },
     isDemoAccount: { type: Boolean, default: false },
@@ -72,6 +72,7 @@ const userSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+userSchema.index({ phone: 1 }, { unique: true, sparse: true });
 userSchema.index({ college: 1 });
 userSchema.index({ name: "text", bio: "text" });
 

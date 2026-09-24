@@ -32,6 +32,8 @@ export const addCollege = (payload) => api.post("/colleges", payload).then((r) =
 // ---- Auth ----
 export const registerUser = (payload) => api.post("/auth/register", payload).then((r) => r.data);
 export const loginUser = (payload) => api.post("/auth/login", payload).then((r) => r.data);
+export const startOtp = (payload) => api.post("/auth/otp/start", payload).then((r) => r.data);
+export const verifyOtp = (payload) => api.post("/auth/otp/verify", payload).then((r) => r.data);
 export const fetchMe = () => api.get("/auth/me").then((r) => r.data.user);
 
 // ---- Feed / Posts ----
