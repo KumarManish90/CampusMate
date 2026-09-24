@@ -11,7 +11,6 @@ async function requireAuth(req, res, next) {
     const user = await User.findById(payload.sub);
     if (!user || !user.isActive) return res.status(401).json({ message: "Session is no longer valid." });
     if (user.isSuspended) return res.status(403).json({ message: "This account has been suspended." });
-    if (process.env.NODE_ENV === "production" && user.verificationStatus === "unverified") return res.status(403).json({ message: "Verify your email or phone number with an OTP to continue." });
 
     req.user = user;
     next();
