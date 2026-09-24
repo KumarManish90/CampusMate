@@ -21,6 +21,7 @@ router.get(
       _id: { $ne: req.user._id, $nin: swiped },
       isActive: true,
       isSuspended: { $ne: true },
+      email: { $not: /^demo\.(ggits|ggct|ggce)@campusmate\.local$/i },
     };
     if (college && college !== "All") filter.collegeName = college;
 

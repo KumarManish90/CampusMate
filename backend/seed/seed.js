@@ -177,6 +177,8 @@ async function run() {
       { $setOnInsert: { name: d.name, email: d.email, passwordHash, college: college._id, collegeName: college.name, isDemoAccount: true, bio: "Demo login account — not a real student.", interests: [] } },
       { upsert: true }
     );
+    // These reserved test sign-ins are never shown to students, even in older records.
+    await User.updateOne({ email: d.email, isDemoAccount: true, name: /^Demo / }, { $set: { name: `Campus Member ${d.code}`, bio: "Exploring campus communities." } });
   }
   console.log(`[seed] users ready: ${userDocs.length} profiles + ${demoLogins.length} demo logins`);
 

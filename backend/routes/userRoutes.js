@@ -30,7 +30,7 @@ router.get(
   asyncHandler(async (req, res) => {
     const { college, q } = req.query;
     const { page, limit, skip } = paginate(req);
-    const filter = {};
+    const filter = { email: { $not: /^demo\.(ggits|ggct|ggce)@campusmate\.local$/i } };
     if (college && college !== "All") filter.collegeName = college;
     if (q) filter.$text = { $search: q };
 
