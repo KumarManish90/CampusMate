@@ -87,14 +87,16 @@ router.post("/verify", asyncHandler(async (req, res) => {
   if (!crypto.timingSafeEqual(Buffer.from(supplied), Buffer.from(challenge.codeHash))) {
     return res.status(400).json({ message: "Incorrect code." });
   }
-  const claimed = await OtpChallenge.findOneAndDelete({ _id: challenge._id, attempts: challenge.attempts, codeHash: challenge.codeHash });
-  if (!claimed) return res.status(400).json({ message: "Code already used. Request a new one." });
   const lookup = channel === "email" ? { email: contact } : { phone: contact };
   let user = await User.findOne(lookup).select("+phone");
+  if (!user && (!parsed.data.name || (!parsed.data.collegeId && !parsed.data.collegeName))) {
+    return res.status(400).json({ message: "For a new account, add your name and college before verifying this code." });
+  }
+  const claimed = await OtpChallenge.findOneAndDelete({ _id: challenge._id, attempts: challenge.attempts, codeHash: challenge.codeHash });
+  if (!claimed) return res.status(400).json({ message: "Code already used. Request a new one." });
   let isNewAccount = false;
   if (!user) {
     const { name, collegeId, collegeName, collegeCity, course, branch, year } = parsed.data;
-    if (!name || (!collegeId && !collegeName)) return res.status(400).json({ message: "For a new account, add your name and college, then request a new code." });
     let college = collegeId && /^[0-9a-fA-F]{24}$/.test(collegeId) ? await College.findById(collegeId) : null;
     if (!college && collegeName) {
       college = await College.findOne({ name: collegeName, city: collegeCity || "" }).collation({ locale: "en", strength: 2 });

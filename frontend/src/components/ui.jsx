@@ -1,0 +1,10 @@
+import React from 'react';
+import {Link} from 'react-router-dom';
+import {GraduationCap,Bell,ArrowLeft,Search,X,ArrowRight,Compass} from 'lucide-react';
+export function Avatar({person,size=42}){return <span className="avatar" style={{width:size,height:size,background:person?.color||'#655091'}}>{person?.photo?<img src={person.photo} alt={person.name}/>:person?.initials||'MK'}</span>}
+export function Brand(){return <Link className="brand" to="/home"><span className="brand-icon"><GraduationCap/></span><span>Campus<span className="gradient-text">Mate</span><small>YOUR CAMPUS, CONNECTED</small></span></Link>}
+export function Heading({title,subtitle,icon:Icon=Bell,to='/announcements',back}){return <header className="page-heading"><div>{back&&<Link className="back" to={back}><ArrowLeft size={17}/>Back</Link>}<h1>{title}</h1>{subtitle&&<p>{subtitle}</p>}</div><Link className="icon-button" aria-label={to==='/announcements'?'Notifications':'Explore'} to={to}><Icon size={21}/></Link></header>}
+export function SearchBar({value,onChange,placeholder='Search people, events, clubs, posts…',onSubmit}){return <form className="search-bar" onSubmit={e=>{e.preventDefault();onSubmit?.()}}><Search size={18}/><input aria-label={placeholder} value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder}/>{value&&<button type="button" aria-label="Clear search" onClick={()=>onChange('')}><X size={15}/></button>}</form>}
+export function Chips({items,active,set}){return <div className="chips" role="tablist">{items.map(x=><button key={x} role="tab" aria-selected={active===x} className={active===x?'active':''} onClick={()=>set(x)}>{x}</button>)}</div>}
+export function Section({title,link,to,children}){return <section className="section"><div className="section-title"><h2>{title}</h2>{link&&<Link to={to}>{link}<ArrowRight size={15}/></Link>}</div>{children}</section>}
+export function Empty({title='Nothing here yet.',action}){return <div className="empty"><Compass size={30}/><p>{title}</p>{action}</div>}

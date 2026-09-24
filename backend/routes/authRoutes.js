@@ -82,6 +82,7 @@ router.post(
 
     const user = await User.findOne({ email: email.toLowerCase() }).select("+passwordHash");
     if (!user) return res.status(401).json({ message: "Incorrect email or password." });
+    if (user.isDemoAccount && process.env.ENABLE_DEMO_LOGIN !== "true") return res.status(401).json({ message: "Incorrect email or password." });
 
     const ok = await bcrypt.compare(password, user.passwordHash);
     if (!ok) return res.status(401).json({ message: "Incorrect email or password." });

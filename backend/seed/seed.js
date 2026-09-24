@@ -113,7 +113,10 @@ const commentSeeds = [
 ];
 
 function daysAgo(n) { return new Date(Date.now() - n * 60 * 60 * 1000); }
-const mediaUrl = (folder, file) => `${MEDIA_BASE_URL}/uploads/${folder}/${file}`;
+const assetName = (folder, file) => folder === "reels" ? "campus-reel.mp4" : folder === "profiles" ? "portrait.webp" : folder === "events" ? "concert.webp" : folder === "clubs" ? "team.webp" : folder === "thumbnails" ? "concert.webp" : /concert|fest|event/i.test(file) ? "concert.webp" : "campus.webp";
+const mediaUrl = (folder, file) => `${MEDIA_BASE_URL}/seed-assets/${assetName(folder, file)}`;
+const seededStoryExpiry = () => new Date(Date.now() + 5 * 365 * 86400000);
+const staleMedia = (url) => !url || url.includes("/uploads/");
 
 async function run() {
   await mongoose.connect(process.env.MONGODB_URI);
@@ -151,6 +154,7 @@ async function run() {
       },
       { upsert: true, new: true }
     );
+    if (doc.isDemoAccount && staleMedia(doc.profilePhoto?.url)) await User.updateOne({ _id: doc._id, isDemoAccount: true }, { $set: { "profilePhoto.url": mediaUrl("profiles", s.img) } });
     userDocs.push(doc);
     await College.updateOne({ _id: college._id }, { $inc: { studentCount: 0 } }); // count is only incremented on real registration, not re-seeds
   }
@@ -160,7 +164,7 @@ async function run() {
     await College.updateOne({ _id: collegeByCode[code]._id }, { studentCount: count });
   }
 
-  // three demo login accounts, one per launch college (clearly fictional, dev-only)
+  // Keep existing development login accounts for backward compatibility.
   const demoLogins = [
     { email: "demo.ggits@campusmate.local", name: "Demo GGITS Student", code: "GGITS" },
     { email: "demo.ggct@campusmate.local", name: "Demo GGCT Student", code: "GGCT" },
@@ -182,7 +186,10 @@ async function run() {
   for (const p of postSeeds) {
     const author = userDocs[p.by];
     const existing = await Post.findOne({ author: author._id, caption: p.caption });
-    if (existing) { postDocs.push(existing); continue; }
+    if (existing) {
+      if (existing.isDemoContent && staleMedia(existing.media?.[0]?.url)) await Post.updateOne({ _id: existing._id, isDemoContent: true }, { $set: { "media.0.url": mediaUrl("posts", p.img) } });
+      postDocs.push(existing); continue;
+    }
     const doc = await Post.create({
       author: author._id, college: author.collegeName, type: "photo", caption: p.caption,
       media: [{ url: mediaUrl("posts", p.img) }], hashtags: p.hashtags,
@@ -199,7 +206,10 @@ async function run() {
   for (const r of reelSeeds) {
     const author = userDocs[r.by];
     const existing = await Reel.findOne({ author: author._id, caption: r.caption });
-    if (existing) { reelDocs.push(existing); continue; }
+    if (existing) {
+      if (existing.isDemoContent && staleMedia(existing.videoUrl)) await Reel.updateOne({ _id: existing._id, isDemoContent: true }, { $set: { videoUrl: mediaUrl("reels", r.video), thumbnailUrl: mediaUrl("thumbnails", r.thumb) } });
+      reelDocs.push(existing); continue;
+    }
     const doc = await Reel.create({
       author: author._id, college: author.collegeName,
       videoUrl: mediaUrl("reels", r.video), thumbnailUrl: mediaUrl("thumbnails", r.thumb),
@@ -225,11 +235,14 @@ async function run() {
   for (const s of storySeeds) {
     const author = userDocs[s.by];
     const existing = await Story.findOne({ author: author._id, textOverlay: s.text });
-    if (existing) continue;
+    if (existing) {
+      if (existing.isDemoContent) await Story.updateOne({ _id: existing._id, isDemoContent: true }, { $set: { expiresAt: seededStoryExpiry(), ...(s.type === "image" && staleMedia(existing.mediaUrl) ? { mediaUrl: mediaUrl("posts", s.img) } : {}) } });
+      continue;
+    }
     await Story.create({
       author: author._id, college: author.collegeName, type: s.type,
       mediaUrl: s.type === "image" ? mediaUrl("posts", s.img) : undefined,
-      textOverlay: s.text, backgroundColor: s.bg, expiresAt: Story.defaultExpiry(), isDemoContent: true,
+      textOverlay: s.text, backgroundColor: s.bg, expiresAt: seededStoryExpiry(), isDemoContent: true,
     });
     storiesCreated++;
   }
@@ -251,6 +264,7 @@ async function run() {
       },
       { upsert: true, new: true }
     );
+    if (doc.isDemoContent && staleMedia(doc.logo?.url)) await Club.updateOne({ _id: doc._id, isDemoContent: true }, { $set: { "logo.url": mediaUrl("clubs", c.img) } });
     clubDocs.push(doc);
   }
   console.log(`[seed] clubs: ${clubDocs.length} ready`);
@@ -263,7 +277,7 @@ async function run() {
       {
         $setOnInsert: {
           title: e.title, college: e.college, venue: e.venue, organizer: `${e.college} Student Council`,
-          description: `Demo event — ${e.title} at ${e.college}.`,
+          description: `${e.title} at ${e.college}. Join your campus community.`,
           image: { url: mediaUrl("events", e.img) },
           date: new Date(Date.now() + e.daysFromNow * 24 * 60 * 60 * 1000),
           participants: userDocs.filter((u) => u.collegeName === e.college).slice(0, 4).map((u) => u._id),
@@ -272,6 +286,12 @@ async function run() {
       },
       { upsert: true, new: true }
     );
+    // Only refresh the seeded entry when its scheduled day has passed; preserve registrations.
+    if (doc.isDemoContent) await Event.updateOne({ _id: doc._id, isDemoContent: true }, { $set: {
+      ...(new Date(doc.date) < new Date() ? { date: new Date(Date.now() + e.daysFromNow * 86400000) } : {}),
+      ...(doc.description?.startsWith("Demo event") ? { description: `${e.title} at ${e.college}. Join your campus community.` } : {}),
+      ...(staleMedia(doc.image?.url) ? { "image.url": mediaUrl("events", e.img) } : {}),
+    } });
     eventDocs.push(doc);
   }
   console.log(`[seed] events: ${eventDocs.length} ready`);
@@ -387,8 +407,7 @@ async function run() {
   console.log(`[seed] notifications: ${notifsCreated} created`);
 
   console.log("\nCampusMate demo seed complete.");
-  console.log("Demo logins (password: CampusMateDemo123!):");
-  demoLogins.forEach((d) => console.log(`  ${d.email}`));
+  console.log("Seeded community profiles are available for the campus feed.");
 
   await mongoose.disconnect();
 }

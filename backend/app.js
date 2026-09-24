@@ -26,7 +26,6 @@ const miscRoutes = require("./routes/miscRoutes"); // notifications, search, has
 const adminRoutes = require("./routes/adminRoutes");
 
 const BUILT_IN_TRUSTED_ORIGINS = [
-  "https://campusmate-git-gemini-updates-bodom-squads.vercel.app",
   "https://campusmate-manish-community.manishkumar09984.chatgpt.site",
 ];
 
@@ -39,7 +38,7 @@ const BUILT_IN_TRUSTED_ORIGINS = [
  * deployments can be supplied through CLIENT_URL/FRONTEND_URL.
  */
 function resolveAllowedOrigins() {
-  const configured = (process.env.CLIENT_URL || process.env.FRONTEND_URL || "")
+  const configured = [process.env.CLIENT_URL, process.env.FRONTEND_URL].filter(Boolean).join(",")
     .split(",")
     .map((o) => o.trim())
     .filter(Boolean);
@@ -48,10 +47,10 @@ function resolveAllowedOrigins() {
     return [...new Set([...configured, ...BUILT_IN_TRUSTED_ORIGINS])];
   }
 
-  if (configured.length > 0) return configured;
+  if (configured.length > 0) return [...new Set([...configured, "http://localhost:5173", "http://localhost:4173"])];
 
   console.warn("[cors] CLIENT_URL not set — defaulting to http://localhost:5173 for local development only.");
-  return ["http://localhost:5173"];
+  return ["http://localhost:5173", "http://localhost:4173"];
 }
 
 function createApp() {
@@ -109,6 +108,7 @@ function createApp() {
 
   // Local-mode media (no-op in production if you're on Cloudinary)
   app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+  app.use("/seed-assets", express.static(path.join(__dirname, "seed", "assets"), { maxAge: "7d" }));
 
   app.get("/api/health", (req, res) => res.json({ message: "CampusMate API is running", time: new Date().toISOString() }));
 
